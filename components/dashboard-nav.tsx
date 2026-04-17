@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Users,
   TrendingUp,
+  LayoutGrid,
 } from "lucide-react"
 
 interface NavItem {
@@ -31,6 +32,19 @@ const navItems: NavItem[] = [
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Шахматка",
+    href: "/dashboard/room-rack",
+    icon: LayoutGrid,
+    roles: [
+      "system_admin",
+      "general_manager",
+      "front_desk_manager",
+      "front_desk_agent",
+      "reservations_manager",
+      "housekeeping_supervisor",
+    ],
   },
   {
     title: "Reservations",
