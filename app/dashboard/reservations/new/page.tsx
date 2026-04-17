@@ -22,13 +22,16 @@ export default async function NewReservationPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">New Reservation</h1>
-        <p className="text-slate-600">Create a new guest reservation</p>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Нове бронювання</h1>
+        <p className="text-slate-600">
+          Створіть нове бронювання. Бронювання створюється зі статусом «Очікує передплату» і підтверджується
+          автоматично після внесення передплати.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Reservation Details</CardTitle>
+          <CardTitle>Деталі бронювання</CardTitle>
         </CardHeader>
         <CardContent>
           <NewReservationForm roomTypes={roomTypes || []} ratePlans={ratePlans || []} />
