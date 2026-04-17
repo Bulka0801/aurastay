@@ -24,8 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { CheckCircle2, Clock, Loader2, Play, GripVertical, UserPlus, User } from "lucide-react"
-import { HOUSEKEEPING_STATUS_UK } from "@/lib/i18n/uk"
+import { CheckCircle2, Loader2, GripVertical, UserPlus, User } from "lucide-react"
 
 export interface HKTask {
   id: string

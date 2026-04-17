@@ -421,14 +421,20 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                 </div>
               </div>
               <div className="flex shrink-0 gap-1.5">
+                <a href={`/dashboard/guests/${guest.id}`}>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                    <History className="h-4 w-4" />
+                    <span className="sr-only">Профіль гостя</span>
+                  </Button>
+                </a>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openViewGuest(guest)}>
                   <Eye className="h-4 w-4" />
-                  <span className="sr-only">View guest</span>
+                  <span className="sr-only">Швидкий перегляд</span>
                 </Button>
                 {canManage && (
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditGuest(guest)}>
                     <Edit2 className="h-4 w-4" />
-                    <span className="sr-only">Edit guest</span>
+                    <span className="sr-only">Редагувати</span>
                   </Button>
                 )}
               </div>
