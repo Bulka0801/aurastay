@@ -7,6 +7,7 @@ import { AlertCircle, LockKeyhole, Loader2, LogOut, Wallet } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { formatUAH, nightsBetween } from "@/lib/format"
 import { canTransitionReservation, roomStatusAfterCheckOut } from "@/lib/rules/transitions"
+import { RESERVATION_STATUS_UK } from "@/lib/i18n/uk"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -59,7 +60,7 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
   const blockReasons: string[] = []
   if (!transitionAllowed) {
     blockReasons.push(
-      `Бронювання у статусі «${reservation.status}» не можна перевести у «checked_out». Check-out доступний лише для гостей, що заселені.`,
+      `Бронювання у статусі «${RESERVATION_STATUS_UK[reservation.status as keyof typeof RESERVATION_STATUS_UK] ?? reservation.status}» не можна виселити. Виселення доступне лише для заселених гостей.`,
     )
   }
   if (!paidInFull) {
@@ -178,7 +179,9 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Статус:</span>
-            <Badge>{reservation.status}</Badge>
+            <Badge>
+              {RESERVATION_STATUS_UK[reservation.status as keyof typeof RESERVATION_STATUS_UK] ?? reservation.status}
+            </Badge>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Гість:</span>

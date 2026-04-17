@@ -26,6 +26,8 @@ import {
 } from "lucide-react"
 import type { Profile } from "@/lib/types"
 import useSWR from "swr"
+import { HousekeepingKanban, type HKTask as KanbanHKTask } from "./housekeeping-kanban"
+import { ROOM_STATUS_UK } from "@/lib/i18n/uk"
 
 interface Room {
   id: string
@@ -58,20 +60,22 @@ interface HKTask {
 }
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  available: { label: "Clean", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
-  occupied: { label: "Occupied", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
-  dirty: { label: "Dirty", bg: "bg-red-50", text: "text-red-700", border: "border-red-400" },
-  cleaning: { label: "Cleaning", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-400" },
-  inspected: { label: "Inspected", bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-300" },
-  maintenance: { label: "Maint.", bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-400" },
-  blocked: { label: "Blocked", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-400" },
+  available: { label: "Готовий", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
+  occupied: { label: "Зайнятий", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
+  dirty: { label: "Брудний", bg: "bg-red-50", text: "text-red-700", border: "border-red-400" },
+  cleaning: { label: "Прибирається", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-400" },
+  inspecting: { label: "Перевірка", bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-300" },
+  inspected: { label: "Перевірено", bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-300" },
+  maintenance: { label: "Ремонт", bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-400" },
+  blocked: { label: "Блок", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-400" },
+  out_of_order: { label: "Несправний", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-400" },
 }
 
 const priorityConfig: Record<string, { label: string; class: string }> = {
-  urgent: { label: "URGENT", class: "bg-red-600 text-white" },
-  high: { label: "High", class: "bg-red-100 text-red-800" },
-  medium: { label: "Medium", class: "bg-amber-100 text-amber-800" },
-  low: { label: "Low", class: "bg-sky-100 text-sky-800" },
+  urgent: { label: "ТЕРМІНОВО", class: "bg-red-600 text-white" },
+  high: { label: "Високий", class: "bg-red-100 text-red-800" },
+  medium: { label: "Середній", class: "bg-amber-100 text-amber-800" },
+  low: { label: "Низький", class: "bg-sky-100 text-sky-800" },
 }
 
 async function fetchTasks() {
@@ -264,26 +268,26 @@ export function HousekeepingClient({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Housekeeping</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Господарська служба</h1>
           <p className="text-sm text-muted-foreground">
-            Room status & cleaning tasks
+            Стан номерів та завдання з прибирання
             <span className="mx-2 text-border">|</span>
-            <span className="font-medium text-red-600">{dirtyCount} dirty</span>
+            <span className="font-medium text-red-600">{dirtyCount} брудних</span>
             <span className="mx-1 text-border">/</span>
-            <span className="font-medium text-amber-600">{cleaningCount} cleaning</span>
+            <span className="font-medium text-amber-600">{cleaningCount} в роботі</span>
             <span className="mx-1 text-border">/</span>
-            <span className="font-medium text-emerald-600">{availableCount} clean</span>
+            <span className="font-medium text-emerald-600">{availableCount} готових</span>
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${tasksLoading ? "animate-spin" : ""}`} />
-            Refresh
+            Оновити
           </Button>
           {isSupervisor && (
             <Button size="sm" onClick={() => setNewTaskOpen(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Task
+              Нове завдання
             </Button>
           )}
         </div>
@@ -294,7 +298,7 @@ export function HousekeepingClient({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search rooms or tasks..."
+            placeholder="Пошук по номерах або завданнях..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -302,42 +306,42 @@ export function HousekeepingClient({
         </div>
         <Select value={floorFilter} onValueChange={setFloorFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Floor" />
+            <SelectValue placeholder="Поверх" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Floors</SelectItem>
+            <SelectItem value="all">Усі поверхи</SelectItem>
             {floors.map((f) => (
               <SelectItem key={f} value={String(f)}>
-                Floor {f}
+                Поверх {f}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="dirty">Dirty</SelectItem>
-            <SelectItem value="cleaning">Cleaning</SelectItem>
-            <SelectItem value="available">Clean</SelectItem>
-            <SelectItem value="occupied">Occupied</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="inspected">Inspected</SelectItem>
+            <SelectItem value="all">Усі статуси</SelectItem>
+            <SelectItem value="dirty">Брудний</SelectItem>
+            <SelectItem value="cleaning">Прибирається</SelectItem>
+            <SelectItem value="available">Готовий</SelectItem>
+            <SelectItem value="occupied">Зайнятий</SelectItem>
+            <SelectItem value="maintenance">Ремонт</SelectItem>
+            <SelectItem value="inspecting">Перевірка</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <Tabs defaultValue="rooms" className="w-full">
+      <Tabs defaultValue="tasks" className="w-full">
         <TabsList>
-          <TabsTrigger value="rooms" className="gap-1.5">
-            <BedDouble className="h-3.5 w-3.5" />
-            Rooms ({filteredRooms.length})
-          </TabsTrigger>
           <TabsTrigger value="tasks" className="gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            Tasks ({allTasks.filter((t) => t.status !== "completed").length})
+            Kanban ({allTasks.filter((t) => t.status !== "completed" && t.status !== "inspected").length})
+          </TabsTrigger>
+          <TabsTrigger value="rooms" className="gap-1.5">
+            <BedDouble className="h-3.5 w-3.5" />
+            Номери ({filteredRooms.length})
           </TabsTrigger>
         </TabsList>
 
@@ -348,7 +352,7 @@ export function HousekeepingClient({
             .map(([floor, floorRooms]) => (
               <div key={floor} className="mb-6">
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Floor {floor}
+                  Поверх {floor}
                 </h3>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                   {floorRooms
@@ -387,13 +391,13 @@ export function HousekeepingClient({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="available">Clean</SelectItem>
-                              <SelectItem value="dirty">Dirty</SelectItem>
-                              <SelectItem value="cleaning">Cleaning</SelectItem>
-                              <SelectItem value="inspected">Inspected</SelectItem>
-                              <SelectItem value="occupied">Occupied</SelectItem>
-                              <SelectItem value="maintenance">Maintenance</SelectItem>
-                              <SelectItem value="blocked">Blocked</SelectItem>
+                              <SelectItem value="available">Готовий</SelectItem>
+                              <SelectItem value="dirty">Брудний</SelectItem>
+                              <SelectItem value="cleaning">Прибирається</SelectItem>
+                              <SelectItem value="inspecting">На перевірці</SelectItem>
+                              <SelectItem value="occupied">Зайнятий</SelectItem>
+                              <SelectItem value="maintenance">Ремонт</SelectItem>
+                              <SelectItem value="blocked">Заблокований</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -405,130 +409,33 @@ export function HousekeepingClient({
           {filteredRooms.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <BedDouble className="mb-3 h-10 w-10" />
-              <p>No rooms match your filters</p>
+              <p>Немає номерів за вашими фільтрами</p>
             </div>
           )}
         </TabsContent>
 
-        {/* ===== TASKS TAB ===== */}
+        {/* ===== KANBAN TAB ===== */}
         <TabsContent value="tasks" className="mt-4">
-          <div className="mb-4 flex gap-2 flex-wrap">
-            {(["all", "pending", "in_progress", "completed"] as const).map((f) => (
-              <Button
-                key={f}
-                size="sm"
-                variant={taskFilter === f ? "default" : "outline"}
-                onClick={() => setTaskFilter(f)}
-              >
-                {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
-                <span className="ml-1.5 text-xs opacity-70">
-                  ({f === "all" ? allTasks.length : allTasks.filter((t) => t.status === f).length})
-                </span>
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {filteredTasks.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <CheckCircle2 className="mb-3 h-10 w-10" />
-                <p>No tasks found</p>
-              </div>
-            )}
-            {filteredTasks.map((task) => {
-              const pCfg = priorityConfig[task.priority] || priorityConfig.medium
-              const isMyTask = task.assigned_to === profile.id
-              return (
-                <Card
-                  key={task.id}
-                  className={`border-l-4 ${
-                    task.priority === "urgent"
-                      ? "border-l-red-600"
-                      : task.priority === "high"
-                        ? "border-l-red-400"
-                        : task.priority === "medium"
-                          ? "border-l-amber-400"
-                          : "border-l-sky-400"
-                  } ${isMyTask ? "bg-primary/5" : ""}`}
-                >
-                  <CardContent className="flex items-center justify-between gap-3 p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-base font-bold">{task.rooms?.room_number || "?"}</span>
-                        <span className="text-xs text-muted-foreground">F{task.rooms?.floor}</span>
-                        {task.rooms?.room_type && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {task.rooms.room_type.name}
-                          </Badge>
-                        )}
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${pCfg.class}`}>
-                          {pCfg.label}
-                        </span>
-                        <Badge
-                          variant={task.status === "completed" ? "default" : task.status === "in_progress" ? "secondary" : "outline"}
-                          className="text-[10px] px-1.5 py-0"
-                        >
-                          {task.status === "in_progress" ? "In Progress" : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                        {task.task_type.replace(/_/g, " ")}
-                        {task.notes && ` -- ${task.notes}`}
-                      </p>
-                      {task.assigned_profile && (
-                        <p className="mt-0.5 text-xs font-medium text-primary">
-                          {task.assigned_profile.first_name} {task.assigned_profile.last_name}
-                          {isMyTask && " (you)"}
-                        </p>
-                      )}
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        {new Date(task.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1.5">
-                      {task.status === "pending" && !task.assigned_to && isSupervisor && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => {
-                            setAssignTask(task)
-                            setAssignStaff("")
-                            setAssignOpen(true)
-                          }}
-                        >
-                          <UserPlus className="mr-1 h-3 w-3" />
-                          Assign
-                        </Button>
-                      )}
-                      {task.status === "pending" && (
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={updatingTask === task.id}
-                          onClick={() => handleTaskStatusChange(task.id, "in_progress")}
-                        >
-                          {updatingTask === task.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ArrowRight className="mr-1 h-3 w-3" />}
-                          Start
-                        </Button>
-                      )}
-                      {task.status === "in_progress" && (
-                        <Button
-                          size="sm"
-                          className="h-7 bg-emerald-600 text-xs hover:bg-emerald-700"
-                          disabled={updatingTask === task.id}
-                          onClick={() => handleTaskStatusChange(task.id, "completed")}
-                        >
-                          {updatingTask === task.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                          Done
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+          {filteredTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <CheckCircle2 className="mb-3 h-10 w-10" />
+              <p>Немає завдань</p>
+            </div>
+          ) : (
+            <HousekeepingKanban
+              tasks={filteredTasks as unknown as KanbanHKTask[]}
+              currentProfileId={profile.id}
+              isSupervisor={isSupervisor}
+              onMoveTask={async (taskId, next) => {
+                await handleTaskStatusChange(taskId, next)
+              }}
+              onAssignRequest={(t) => {
+                setAssignTask(t as unknown as HKTask)
+                setAssignStaff("")
+                setAssignOpen(true)
+              }}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -536,13 +443,13 @@ export function HousekeepingClient({
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Task -- Room {assignTask?.rooms?.room_number}</DialogTitle>
+            <DialogTitle>Призначити завдання — № {assignTask?.rooms?.room_number}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             {assignTask && (
               <div className="rounded-lg bg-muted p-3 text-sm">
-                <p><span className="font-medium">Type:</span> {assignTask.task_type.replace(/_/g, " ")}</p>
-                <p><span className="font-medium">Priority:</span>{" "}
+                <p><span className="font-medium">Тип:</span> {assignTask.task_type.replace(/_/g, " ")}</p>
+                <p><span className="font-medium">Пріоритет:</span>{" "}
                   <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${priorityConfig[assignTask.priority]?.class}`}>
                     {priorityConfig[assignTask.priority]?.label}
                   </span>
@@ -550,17 +457,17 @@ export function HousekeepingClient({
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label>Assign to</Label>
+              <Label>Призначити покоївці</Label>
               <Select value={assignStaff} onValueChange={setAssignStaff}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select staff..." />
+                  <SelectValue placeholder="Оберіть покоївку..." />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => {
                     const load = allTasks.filter((t) => t.assigned_to === s.id && t.status !== "completed").length
                     return (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name} ({load} active)
+                        {s.first_name} {s.last_name} ({load} активних)
                       </SelectItem>
                     )
                   })}
@@ -569,10 +476,10 @@ export function HousekeepingClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Скасувати</Button>
             <Button onClick={handleAssign} disabled={!assignStaff || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign & Start
+              Призначити та почати
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -582,17 +489,17 @@ export function HousekeepingClient({
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Housekeeping Task</DialogTitle>
+            <DialogTitle>Створити завдання для покоївки</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-2">
-              <Label>Room</Label>
+              <Label>Номер</Label>
               <Select value={newTaskRoomId} onValueChange={setNewTaskRoomId}>
-                <SelectTrigger><SelectValue placeholder="Select room..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Оберіть номер..." /></SelectTrigger>
                 <SelectContent>
                   {allRooms.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      Room {r.room_number} (Floor {r.floor}) -- {statusConfig[r.status]?.label || r.status}
+                      № {r.room_number} (поверх {r.floor}) — {statusConfig[r.status]?.label || r.status}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -600,38 +507,38 @@ export function HousekeepingClient({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Task Type</Label>
+                <Label>Тип завдання</Label>
                 <Select value={newTaskType} onValueChange={setNewTaskType}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard_cleaning">Standard Cleaning</SelectItem>
-                    <SelectItem value="deep_cleaning">Deep Cleaning</SelectItem>
-                    <SelectItem value="turndown">Turndown Service</SelectItem>
-                    <SelectItem value="inspection">Inspection</SelectItem>
-                    <SelectItem value="linen_change">Linen Change</SelectItem>
-                    <SelectItem value="minibar_restock">Minibar Restock</SelectItem>
+                    <SelectItem value="standard_cleaning">Стандартне прибирання</SelectItem>
+                    <SelectItem value="deep_cleaning">Глибоке прибирання</SelectItem>
+                    <SelectItem value="turndown">Вечірнє обслуговування</SelectItem>
+                    <SelectItem value="inspection">Перевірка</SelectItem>
+                    <SelectItem value="linen_change">Зміна білизни</SelectItem>
+                    <SelectItem value="minibar_restock">Поповнення мінібару</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Priority</Label>
+                <Label>Пріоритет</Label>
                 <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">Низький</SelectItem>
+                    <SelectItem value="medium">Середній</SelectItem>
+                    <SelectItem value="high">Високий</SelectItem>
+                    <SelectItem value="urgent">Терміново</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Assign to (optional)</Label>
+              <Label>Призначити (необов&apos;язково)</Label>
               <Select value={newTaskStaff} onValueChange={setNewTaskStaff}>
-                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Не призначено" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
+                  <SelectItem value="none">Не призначено</SelectItem>
                   {staff.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
                   ))}
@@ -639,15 +546,15 @@ export function HousekeepingClient({
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Notes</Label>
-              <Textarea placeholder="Special instructions..." value={newTaskNotes} onChange={(e) => setNewTaskNotes(e.target.value)} rows={2} />
+              <Label>Примітки</Label>
+              <Textarea placeholder="Спеціальні інструкції..." value={newTaskNotes} onChange={(e) => setNewTaskNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Скасувати</Button>
             <Button onClick={handleCreateTask} disabled={!newTaskRoomId || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Task
+              Створити завдання
             </Button>
           </DialogFooter>
         </DialogContent>

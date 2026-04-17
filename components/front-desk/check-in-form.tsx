@@ -13,6 +13,7 @@ import {
   requiredPrepayment,
 } from "@/lib/rules/prepayment"
 import { canTransitionReservation, isRoomReadyForCheckIn, roomStatusAfterCheckIn } from "@/lib/rules/transitions"
+import { RESERVATION_STATUS_UK } from "@/lib/i18n/uk"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -121,7 +122,7 @@ export function CheckInForm({ reservation, availableRooms }: CheckInFormProps) {
   const blockReasons: string[] = []
   if (!transitionAllowed) {
     blockReasons.push(
-      `Бронювання у статусі «${reservation.status}» не можна перевести у «checked_in». Спочатку підтвердіть бронювання.`,
+      `Бронювання у статусі «${RESERVATION_STATUS_UK[reservation.status as keyof typeof RESERVATION_STATUS_UK] ?? reservation.status}» не можна заселити. Спочатку внесіть передплату, щоб отримати статус «Підтверджено».`,
     )
   }
   if (!room) {
@@ -266,7 +267,7 @@ export function CheckInForm({ reservation, availableRooms }: CheckInFormProps) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">Статус:</span>
             <Badge variant={reservation.status === "confirmed" ? "default" : "secondary"}>
-              {reservation.status}
+              {RESERVATION_STATUS_UK[reservation.status as keyof typeof RESERVATION_STATUS_UK] ?? reservation.status}
             </Badge>
           </div>
           <div className="flex justify-between">
@@ -340,7 +341,7 @@ export function CheckInForm({ reservation, availableRooms }: CheckInFormProps) {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Check-in недоступний</AlertTitle>
               <AlertDescription>
-                Бронювання у статусі «{reservation.status}». Заселити можна лише підтверджене (confirmed) бронювання.
+                Бронювання у статусі «{RESERVATION_STATUS_UK[reservation.status as keyof typeof RESERVATION_STATUS_UK] ?? reservation.status}». Заселити можна лише підтверджене бронювання.
               </AlertDescription>
             </Alert>
           )}
