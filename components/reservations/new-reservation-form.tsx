@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
+import { uk } from "date-fns/locale"
 import { CalendarIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -43,17 +44,17 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(1)
 
-  // Step 1: Dates and guests
+  // Крок 1: Дати та гості
   const [checkInDate, setCheckInDate] = useState<Date>()
   const [checkOutDate, setCheckOutDate] = useState<Date>()
   const [adults, setAdults] = useState("2")
   const [children, setChildren] = useState("0")
 
-  // Step 2: Room selection
+  // Крок 2: Вибір типу номера і тарифу
   const [selectedRoomType, setSelectedRoomType] = useState("")
   const [selectedRatePlan, setSelectedRatePlan] = useState("")
 
-  // Step 3: Guest information
+  // Крок 3: Дані гостя
   const [guestData, setGuestData] = useState({
     firstName: "",
     lastName: "",
@@ -72,13 +73,13 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
     try {
       const supabase = createClient()
 
-      // Get authenticated user
+      // Перевірити авторизацію
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error("Користувач не авторизований")
 
-      // Create guest
+      // Створити гостя
       const { data: guest, error: guestError } = await supabase
         .from("guests")
         .insert({
@@ -94,20 +95,22 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
       if (guestError) throw guestError
 
-      // Calculate total amount
+      // Розрахувати суму
       const roomType = roomTypes.find((rt) => rt.id === selectedRoomType)
       const ratePlan = ratePlans.find((rp) => rp.id === selectedRatePlan)
-      if (!roomType || !ratePlan || !checkInDate || !checkOutDate) throw new Error("Missing required data")
+      if (!roomType || !ratePlan || !checkInDate || !checkOutDate) {
+        throw new Error("Не заповнені обов’язкові поля")
+      }
 
       const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))
       const baseAmount = roomType.base_rate * nights
       const discount = (baseAmount * ratePlan.discount_percentage) / 100
       const totalAmount = baseAmount - discount
 
-      // Generate reservation number
+      // Згенерувати номер бронювання
       const reservationNumber = `RES${Date.now().toString().slice(-8)}`
 
-      // Create reservation
+      // Створити бронювання
       const { data: reservation, error: reservationError } = await supabase
         .from("reservations")
         .insert({
@@ -128,7 +131,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
       if (reservationError) throw reservationError
 
-      // Find available room
+      // Знайти доступний номер
       const { data: availableRooms } = await supabase
         .from("rooms")
         .select("*")
@@ -137,7 +140,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
         .limit(1)
 
       if (availableRooms && availableRooms.length > 0) {
-        // Create reservation room link
+        // Створити зв’язок бронювання ↔ номер
         await supabase.from("reservation_rooms").insert({
           reservation_id: reservation.id,
           room_id: availableRooms[0].id,
@@ -149,7 +152,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
       router.push(`/dashboard/reservations/${reservation.id}`)
       router.refresh()
     } catch (error) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "Сталася помилка")
     } finally {
       setIsLoading(false)
     }
@@ -159,11 +162,11 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
     <form onSubmit={handleSubmit} className="space-y-6">
       {step === 1 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Step 1: Dates & Guests</h3>
+          <h3 className="text-lg font-semibold">Крок 1: Дати та гості</h3>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Check-in Date *</Label>
+              <Label>Дата заїзду *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -174,7 +177,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {checkInDate ? format(checkInDate, "PPP") : <span>Pick a date</span>}
+                    {checkInDate ? format(checkInDate, "PPP", { locale: uk }) : <span>Оберіть дату</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -182,6 +185,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
                     mode="single"
                     selected={checkInDate}
                     onSelect={setCheckInDate}
+                    locale={uk}
                     initialFocus
                     disabled={(date) => date < new Date()}
                   />
@@ -190,7 +194,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
             </div>
 
             <div className="space-y-2">
-              <Label>Check-out Date *</Label>
+              <Label>Дата виїзду *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -201,7 +205,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {checkOutDate ? format(checkOutDate, "PPP") : <span>Pick a date</span>}
+                    {checkOutDate ? format(checkOutDate, "PPP", { locale: uk }) : <span>Оберіть дату</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -209,6 +213,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
                     mode="single"
                     selected={checkOutDate}
                     onSelect={setCheckOutDate}
+                    locale={uk}
                     initialFocus
                     disabled={(date) => !checkInDate || date <= checkInDate}
                   />
@@ -219,7 +224,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="adults">Adults *</Label>
+              <Label htmlFor="adults">Дорослі *</Label>
               <Input
                 id="adults"
                 type="number"
@@ -231,7 +236,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="children">Children</Label>
+              <Label htmlFor="children">Діти</Label>
               <Input
                 id="children"
                 type="number"
@@ -243,25 +248,25 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
           </div>
 
           <Button type="button" onClick={() => setStep(2)} disabled={!checkInDate || !checkOutDate}>
-            Next: Select Room
+            Далі: Вибір номера
           </Button>
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Step 2: Room & Rate Selection</h3>
+          <h3 className="text-lg font-semibold">Крок 2: Номер і тариф</h3>
 
           <div className="space-y-2">
-            <Label>Room Type *</Label>
+            <Label>Тип номера *</Label>
             <Select value={selectedRoomType} onValueChange={setSelectedRoomType}>
               <SelectTrigger>
-                <SelectValue placeholder="Select room type" />
+                <SelectValue placeholder="Оберіть тип номера" />
               </SelectTrigger>
               <SelectContent>
                 {roomTypes.map((rt) => (
                   <SelectItem key={rt.id} value={rt.id}>
-                    {rt.name} - ${rt.base_rate}/night (Max {rt.max_occupancy} guests)
+                    {rt.name} — ${rt.base_rate}/ніч (до {rt.max_occupancy} гостей)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -269,15 +274,15 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
           </div>
 
           <div className="space-y-2">
-            <Label>Rate Plan *</Label>
+            <Label>Тарифний план *</Label>
             <Select value={selectedRatePlan} onValueChange={setSelectedRatePlan}>
               <SelectTrigger>
-                <SelectValue placeholder="Select rate plan" />
+                <SelectValue placeholder="Оберіть тариф" />
               </SelectTrigger>
               <SelectContent>
                 {ratePlans.map((rp) => (
                   <SelectItem key={rp.id} value={rp.id}>
-                    {rp.name} ({rp.discount_percentage}% discount)
+                    {rp.name} (знижка {rp.discount_percentage}%)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -286,14 +291,14 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           {checkInDate && checkOutDate && selectedRoomType && selectedRatePlan && (
             <div className="rounded-lg border bg-slate-50 p-4">
-              <h4 className="font-semibold mb-2">Price Summary</h4>
+              <h4 className="mb-2 font-semibold">Розрахунок вартості</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span>Nights:</span>
+                  <span>Ночей:</span>
                   <span>{Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Base Rate:</span>
+                  <span>Базова вартість:</span>
                   <span>
                     $
                     {(
@@ -303,13 +308,13 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Discount:</span>
+                  <span>Знижка:</span>
                   <span className="text-green-600">
                     -{ratePlans.find((rp) => rp.id === selectedRatePlan)!.discount_percentage}%
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-1 font-bold">
-                  <span>Total:</span>
+                  <span>Разом:</span>
                   <span>
                     $
                     {(
@@ -325,10 +330,10 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              Back
+              Назад
             </Button>
             <Button type="button" onClick={() => setStep(3)} disabled={!selectedRoomType || !selectedRatePlan}>
-              Next: Guest Information
+              Далі: Дані гостя
             </Button>
           </div>
         </div>
@@ -336,11 +341,11 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
       {step === 3 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Step 3: Guest Information</h3>
+          <h3 className="text-lg font-semibold">Крок 3: Дані гостя</h3>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
+              <Label htmlFor="firstName">Ім&apos;я *</Label>
               <Input
                 id="firstName"
                 value={guestData.firstName}
@@ -350,7 +355,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
+              <Label htmlFor="lastName">Прізвище *</Label>
               <Input
                 id="lastName"
                 value={guestData.lastName}
@@ -362,7 +367,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Ел. пошта *</Label>
               <Input
                 id="email"
                 type="email"
@@ -373,7 +378,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone *</Label>
+              <Label htmlFor="phone">Телефон *</Label>
               <Input
                 id="phone"
                 value={guestData.phone}
@@ -385,7 +390,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="country">Країна</Label>
               <Input
                 id="country"
                 value={guestData.country}
@@ -394,7 +399,7 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="passport">Passport / ID Number</Label>
+              <Label htmlFor="passport">Паспорт / ID</Label>
               <Input
                 id="passport"
                 value={guestData.passport}
@@ -404,12 +409,12 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="specialRequests">Special Requests</Label>
+            <Label htmlFor="specialRequests">Побажання</Label>
             <Textarea
               id="specialRequests"
               value={guestData.specialRequests}
               onChange={(e) => setGuestData({ ...guestData, specialRequests: e.target.value })}
-              placeholder="Any special requests or preferences..."
+              placeholder="Побажання або вподобання гостя..."
               rows={3}
             />
           </div>
@@ -418,16 +423,16 @@ export function NewReservationForm({ roomTypes, ratePlans }: NewReservationFormP
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(2)}>
-              Back
+              Назад
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  Створення...
                 </>
               ) : (
-                "Create Reservation"
+                "Створити бронювання"
               )}
             </Button>
           </div>

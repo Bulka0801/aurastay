@@ -120,81 +120,81 @@ export function CheckInForm({ reservation, availableRooms }: CheckInFormProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Reservation Details</h2>
+        <h2 className="text-xl font-semibold mb-4">Деталі бронювання</h2>
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Reservation #:</span>
+            <span className="text-muted-foreground">Бронювання №:</span>
             <span className="font-medium">{reservation.reservation_number}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Guest:</span>
+            <span className="text-muted-foreground">Гість:</span>
             <span className="font-medium">
               {reservation.guests.first_name} {reservation.guests.last_name}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Email:</span>
+            <span className="text-muted-foreground">Електронна пошта:</span>
             <span>{reservation.guests.email}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Phone:</span>
+            <span className="text-muted-foreground">Телефон:</span>
             <span>{reservation.guests.phone}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Check-in Date:</span>
+            <span className="text-muted-foreground">Дата заїзду:</span>
             <span>{new Date(reservation.check_in_date).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Check-out Date:</span>
+            <span className="text-muted-foreground">Дата виїзду:</span>
             <span>{new Date(reservation.check_out_date).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Guests:</span>
+            <span className="text-muted-foreground">Гості:</span>
             <span>
-              {reservation.adults} Adult{reservation.adults > 1 ? "s" : ""}
-              {reservation.children > 0 && `, ${reservation.children} Child${reservation.children > 1 ? "ren" : ""}`}
+              {reservation.adults} доросл{reservation.adults > 1 ? "их" : "ий"}
+              {reservation.children > 0 && `, ${reservation.children} дит${reservation.children > 1 ? "ей" : "ина"}`}
             </span>
           </div>
           <div className="flex justify-between border-t pt-3">
-            <span className="text-muted-foreground">Total Amount:</span>
+            <span className="text-muted-foreground">Загальна сума:</span>
             <span className="font-bold text-lg">${reservation.total_amount.toFixed(2)}</span>
           </div>
         </div>
       </Card>
-
+  
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Check-In Information</h2>
+        <h2 className="text-xl font-semibold mb-4">Інформація про заселення</h2>
         <div className="space-y-4">
           {(!reservation.reservation_rooms || reservation.reservation_rooms.length === 0) && (
             <div className="space-y-2">
-              <Label>Assign Room *</Label>
+              <Label>Призначити номер *</Label>
               <Select value={selectedRoom} onValueChange={setSelectedRoom}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a room" />
+                  <SelectValue placeholder="Оберіть номер" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableRooms.map((room) => (
                     <SelectItem key={room.id} value={room.id}>
-                      {room.room_number} - {room.room_type.name} (${room.room_type.base_rate}/night)
+                      {room.room_number} - {room.room_type.name} (${room.room_type.base_rate}/ніч)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
-
+  
           {reservation.reservation_rooms && reservation.reservation_rooms.length > 0 && (
             <div className="rounded-lg border bg-slate-50 p-4">
-              <p className="text-sm text-muted-foreground mb-1">Assigned Room</p>
+              <p className="text-sm text-muted-foreground mb-1">Призначений номер</p>
               <p className="font-semibold text-lg">
                 {reservation.reservation_rooms[0].rooms.room_number} -{" "}
                 {reservation.reservation_rooms[0].rooms.room_type.name}
               </p>
             </div>
           )}
-
+  
           <div className="space-y-2">
-            <Label htmlFor="deposit">Deposit Amount (Optional)</Label>
+            <Label htmlFor="deposit">Сума депозиту (необов’язково)</Label>
             <Input
               id="deposit"
               type="number"
@@ -205,45 +205,45 @@ export function CheckInForm({ reservation, availableRooms }: CheckInFormProps) {
               onChange={(e) => setDepositAmount(e.target.value)}
             />
           </div>
-
+  
           <div className="space-y-2">
-            <Label>Payment Method</Label>
+            <Label>Спосіб оплати</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="credit_card">Credit Card</SelectItem>
-                <SelectItem value="debit_card">Debit Card</SelectItem>
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                <SelectItem value="cash">Готівка</SelectItem>
+                <SelectItem value="credit_card">Кредитна картка</SelectItem>
+                <SelectItem value="debit_card">Дебетова картка</SelectItem>
+                <SelectItem value="bank_transfer">Банківський переказ</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
+  
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Label htmlFor="notes">Примітки (необов’язково)</Label>
             <Textarea
               id="notes"
-              placeholder="Any special notes or requests..."
+              placeholder="Будь-які додаткові побажання або примітки..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
             />
           </div>
-
+  
           {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
+  
           <Button onClick={handleCheckIn} disabled={isLoading} className="w-full" size="lg">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                Обробка...
               </>
             ) : (
               <>
                 <CheckCircle className="mr-2 h-4 w-4" />
-                Complete Check-In
+                Завершити заселення
               </>
             )}
           </Button>

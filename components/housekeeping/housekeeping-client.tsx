@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
+import { formatPriority, formatRoomStatus, formatTaskType } from "@/lib/localization"
 import {
   Search,
   Plus,
@@ -57,21 +58,28 @@ interface HKTask {
   assigned_profile: { id: string; first_name: string; last_name: string } | null
 }
 
-const statusConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  available: { label: "Clean", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
-  occupied: { label: "Occupied", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
-  dirty: { label: "Dirty", bg: "bg-red-50", text: "text-red-700", border: "border-red-400" },
-  cleaning: { label: "Cleaning", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-400" },
-  inspected: { label: "Inspected", bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-300" },
-  maintenance: { label: "Maint.", bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-400" },
-  blocked: { label: "Blocked", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-400" },
+const statusConfig: Record<string, { bg: string; text: string; border: string }> = {
+  available: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
+  occupied: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
+  dirty: { bg: "bg-red-50", text: "text-red-700", border: "border-red-400" },
+  cleaning: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-400" },
+  inspected: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-300" },
+  maintenance: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-400" },
+  blocked: { bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-400" },
 }
 
-const priorityConfig: Record<string, { label: string; class: string }> = {
-  urgent: { label: "URGENT", class: "bg-red-600 text-white" },
-  high: { label: "High", class: "bg-red-100 text-red-800" },
-  medium: { label: "Medium", class: "bg-amber-100 text-amber-800" },
-  low: { label: "Low", class: "bg-sky-100 text-sky-800" },
+const priorityConfig: Record<string, { class: string }> = {
+  urgent: { class: "bg-red-600 text-white" },
+  high: { class: "bg-red-100 text-red-800" },
+  medium: { class: "bg-amber-100 text-amber-800" },
+  low: { class: "bg-sky-100 text-sky-800" },
+}
+
+function formatTaskStatus(status: string) {
+  if (status === "pending") return "Очікує"
+  if (status === "in_progress") return "У процесі"
+  if (status === "completed") return "Виконано"
+  return status
 }
 
 async function fetchTasks() {
@@ -264,26 +272,26 @@ export function HousekeepingClient({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Housekeeping</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Господарська служба</h1>
           <p className="text-sm text-muted-foreground">
-            Room status & cleaning tasks
+            Статуси номерів і завдання прибирання
             <span className="mx-2 text-border">|</span>
-            <span className="font-medium text-red-600">{dirtyCount} dirty</span>
+            <span className="font-medium text-red-600">{dirtyCount} брудних</span>
             <span className="mx-1 text-border">/</span>
-            <span className="font-medium text-amber-600">{cleaningCount} cleaning</span>
+            <span className="font-medium text-amber-600">{cleaningCount} прибираються</span>
             <span className="mx-1 text-border">/</span>
-            <span className="font-medium text-emerald-600">{availableCount} clean</span>
+            <span className="font-medium text-emerald-600">{availableCount} чистих</span>
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${tasksLoading ? "animate-spin" : ""}`} />
-            Refresh
+            Оновити
           </Button>
           {isSupervisor && (
             <Button size="sm" onClick={() => setNewTaskOpen(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Task
+              Нове завдання
             </Button>
           )}
         </div>
@@ -294,7 +302,7 @@ export function HousekeepingClient({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search rooms or tasks..."
+            placeholder="Пошук номерів або завдань..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -302,29 +310,29 @@ export function HousekeepingClient({
         </div>
         <Select value={floorFilter} onValueChange={setFloorFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Floor" />
+            <SelectValue placeholder="Поверх" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Floors</SelectItem>
+            <SelectItem value="all">Усі поверхи</SelectItem>
             {floors.map((f) => (
               <SelectItem key={f} value={String(f)}>
-                Floor {f}
+                Поверх {f}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="dirty">Dirty</SelectItem>
-            <SelectItem value="cleaning">Cleaning</SelectItem>
-            <SelectItem value="available">Clean</SelectItem>
-            <SelectItem value="occupied">Occupied</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="inspected">Inspected</SelectItem>
+            <SelectItem value="all">Усі статуси</SelectItem>
+            <SelectItem value="dirty">{formatRoomStatus("dirty")}</SelectItem>
+            <SelectItem value="cleaning">{formatRoomStatus("cleaning")}</SelectItem>
+            <SelectItem value="available">{formatRoomStatus("available")}</SelectItem>
+            <SelectItem value="occupied">{formatRoomStatus("occupied")}</SelectItem>
+            <SelectItem value="maintenance">{formatRoomStatus("maintenance")}</SelectItem>
+            <SelectItem value="inspected">{formatRoomStatus("inspected")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -333,11 +341,11 @@ export function HousekeepingClient({
         <TabsList>
           <TabsTrigger value="rooms" className="gap-1.5">
             <BedDouble className="h-3.5 w-3.5" />
-            Rooms ({filteredRooms.length})
+            Номери ({filteredRooms.length})
           </TabsTrigger>
           <TabsTrigger value="tasks" className="gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            Tasks ({allTasks.filter((t) => t.status !== "completed").length})
+            Завдання ({allTasks.filter((t) => t.status !== "completed").length})
           </TabsTrigger>
         </TabsList>
 
@@ -348,7 +356,7 @@ export function HousekeepingClient({
             .map(([floor, floorRooms]) => (
               <div key={floor} className="mb-6">
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Floor {floor}
+                  Поверх {floor}
                 </h3>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                   {floorRooms
@@ -376,7 +384,7 @@ export function HousekeepingClient({
                             variant="outline"
                             className={`mt-1.5 w-full justify-center text-[10px] py-0 ${cfg.text} border-current`}
                           >
-                            {cfg.label}
+                            {formatRoomStatus(room.status)}
                           </Badge>
                           <Select
                             value={room.status}
@@ -387,13 +395,13 @@ export function HousekeepingClient({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="available">Clean</SelectItem>
-                              <SelectItem value="dirty">Dirty</SelectItem>
-                              <SelectItem value="cleaning">Cleaning</SelectItem>
-                              <SelectItem value="inspected">Inspected</SelectItem>
-                              <SelectItem value="occupied">Occupied</SelectItem>
-                              <SelectItem value="maintenance">Maintenance</SelectItem>
-                              <SelectItem value="blocked">Blocked</SelectItem>
+                              <SelectItem value="available">{formatRoomStatus("available")}</SelectItem>
+                              <SelectItem value="dirty">{formatRoomStatus("dirty")}</SelectItem>
+                              <SelectItem value="cleaning">{formatRoomStatus("cleaning")}</SelectItem>
+                              <SelectItem value="inspected">{formatRoomStatus("inspected")}</SelectItem>
+                              <SelectItem value="occupied">{formatRoomStatus("occupied")}</SelectItem>
+                              <SelectItem value="maintenance">{formatRoomStatus("maintenance")}</SelectItem>
+                              <SelectItem value="blocked">{formatRoomStatus("blocked")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -405,7 +413,7 @@ export function HousekeepingClient({
           {filteredRooms.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <BedDouble className="mb-3 h-10 w-10" />
-              <p>No rooms match your filters</p>
+              <p>Немає номерів, що відповідають фільтрам</p>
             </div>
           )}
         </TabsContent>
@@ -420,7 +428,7 @@ export function HousekeepingClient({
                 variant={taskFilter === f ? "default" : "outline"}
                 onClick={() => setTaskFilter(f)}
               >
-                {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === "all" ? "Усі" : f === "in_progress" ? "У процесі" : f === "pending" ? "Очікує" : "Виконано"}
                 <span className="ml-1.5 text-xs opacity-70">
                   ({f === "all" ? allTasks.length : allTasks.filter((t) => t.status === f).length})
                 </span>
@@ -432,7 +440,7 @@ export function HousekeepingClient({
             {filteredTasks.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <CheckCircle2 className="mb-3 h-10 w-10" />
-                <p>No tasks found</p>
+                <p>Завдань не знайдено</p>
               </div>
             )}
             {filteredTasks.map((task) => {
@@ -455,30 +463,30 @@ export function HousekeepingClient({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-base font-bold">{task.rooms?.room_number || "?"}</span>
-                        <span className="text-xs text-muted-foreground">F{task.rooms?.floor}</span>
+                        <span className="text-xs text-muted-foreground">Пов. {task.rooms?.floor}</span>
                         {task.rooms?.room_type && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             {task.rooms.room_type.name}
                           </Badge>
                         )}
                         <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${pCfg.class}`}>
-                          {pCfg.label}
+                          {formatPriority(task.priority)}
                         </span>
                         <Badge
                           variant={task.status === "completed" ? "default" : task.status === "in_progress" ? "secondary" : "outline"}
                           className="text-[10px] px-1.5 py-0"
                         >
-                          {task.status === "in_progress" ? "In Progress" : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                          {formatTaskStatus(task.status)}
                         </Badge>
                       </div>
                       <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                        {task.task_type.replace(/_/g, " ")}
+                        {formatTaskType(task.task_type)}
                         {task.notes && ` -- ${task.notes}`}
                       </p>
                       {task.assigned_profile && (
                         <p className="mt-0.5 text-xs font-medium text-primary">
                           {task.assigned_profile.first_name} {task.assigned_profile.last_name}
-                          {isMyTask && " (you)"}
+                          {isMyTask && " (ви)"}
                         </p>
                       )}
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -498,7 +506,7 @@ export function HousekeepingClient({
                           }}
                         >
                           <UserPlus className="mr-1 h-3 w-3" />
-                          Assign
+                          Призначити
                         </Button>
                       )}
                       {task.status === "pending" && (
@@ -509,7 +517,7 @@ export function HousekeepingClient({
                           onClick={() => handleTaskStatusChange(task.id, "in_progress")}
                         >
                           {updatingTask === task.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ArrowRight className="mr-1 h-3 w-3" />}
-                          Start
+                          Почати
                         </Button>
                       )}
                       {task.status === "in_progress" && (
@@ -520,7 +528,7 @@ export function HousekeepingClient({
                           onClick={() => handleTaskStatusChange(task.id, "completed")}
                         >
                           {updatingTask === task.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                          Done
+                          Готово
                         </Button>
                       )}
                     </div>
@@ -536,31 +544,31 @@ export function HousekeepingClient({
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Task -- Room {assignTask?.rooms?.room_number}</DialogTitle>
+            <DialogTitle>Призначити завдання — номер {assignTask?.rooms?.room_number}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             {assignTask && (
               <div className="rounded-lg bg-muted p-3 text-sm">
-                <p><span className="font-medium">Type:</span> {assignTask.task_type.replace(/_/g, " ")}</p>
-                <p><span className="font-medium">Priority:</span>{" "}
+                <p><span className="font-medium">Тип:</span> {formatTaskType(assignTask.task_type)}</p>
+                <p><span className="font-medium">Пріоритет:</span>{" "}
                   <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${priorityConfig[assignTask.priority]?.class}`}>
-                    {priorityConfig[assignTask.priority]?.label}
+                    {formatPriority(assignTask.priority)}
                   </span>
                 </p>
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label>Assign to</Label>
+              <Label>Призначити на</Label>
               <Select value={assignStaff} onValueChange={setAssignStaff}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select staff..." />
+                  <SelectValue placeholder="Оберіть працівника..." />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => {
                     const load = allTasks.filter((t) => t.assigned_to === s.id && t.status !== "completed").length
                     return (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name} ({load} active)
+                        {s.first_name} {s.last_name} ({load} активних)
                       </SelectItem>
                     )
                   })}
@@ -569,10 +577,10 @@ export function HousekeepingClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Скасувати</Button>
             <Button onClick={handleAssign} disabled={!assignStaff || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign & Start
+              Призначити та почати
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -582,17 +590,17 @@ export function HousekeepingClient({
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Housekeeping Task</DialogTitle>
+            <DialogTitle>Створити завдання господарської служби</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-2">
-              <Label>Room</Label>
+              <Label>Номер</Label>
               <Select value={newTaskRoomId} onValueChange={setNewTaskRoomId}>
-                <SelectTrigger><SelectValue placeholder="Select room..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Оберіть номер..." /></SelectTrigger>
                 <SelectContent>
                   {allRooms.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      Room {r.room_number} (Floor {r.floor}) -- {statusConfig[r.status]?.label || r.status}
+                      Номер {r.room_number} (поверх {r.floor}) — {formatRoomStatus(r.status)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -600,38 +608,38 @@ export function HousekeepingClient({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Task Type</Label>
+                <Label>Тип завдання</Label>
                 <Select value={newTaskType} onValueChange={setNewTaskType}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard_cleaning">Standard Cleaning</SelectItem>
-                    <SelectItem value="deep_cleaning">Deep Cleaning</SelectItem>
-                    <SelectItem value="turndown">Turndown Service</SelectItem>
-                    <SelectItem value="inspection">Inspection</SelectItem>
-                    <SelectItem value="linen_change">Linen Change</SelectItem>
-                    <SelectItem value="minibar_restock">Minibar Restock</SelectItem>
+                    <SelectItem value="standard_cleaning">{formatTaskType("standard_cleaning")}</SelectItem>
+                    <SelectItem value="deep_cleaning">{formatTaskType("deep_cleaning")}</SelectItem>
+                    <SelectItem value="turndown">{formatTaskType("turndown")}</SelectItem>
+                    <SelectItem value="inspection">{formatTaskType("inspection")}</SelectItem>
+                    <SelectItem value="linen_change">{formatTaskType("linen_change")}</SelectItem>
+                    <SelectItem value="minibar_restock">{formatTaskType("minibar_restock")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Priority</Label>
+                <Label>Пріоритет</Label>
                 <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">{formatPriority("low")}</SelectItem>
+                    <SelectItem value="medium">{formatPriority("medium")}</SelectItem>
+                    <SelectItem value="high">{formatPriority("high")}</SelectItem>
+                    <SelectItem value="urgent">{formatPriority("urgent")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Assign to (optional)</Label>
+              <Label>Призначити (необов&apos;язково)</Label>
               <Select value={newTaskStaff} onValueChange={setNewTaskStaff}>
-                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Без виконавця" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
+                  <SelectItem value="none">Без виконавця</SelectItem>
                   {staff.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
                   ))}
@@ -639,15 +647,15 @@ export function HousekeepingClient({
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Notes</Label>
-              <Textarea placeholder="Special instructions..." value={newTaskNotes} onChange={(e) => setNewTaskNotes(e.target.value)} rows={2} />
+              <Label>Примітки</Label>
+              <Textarea placeholder="Особливі інструкції..." value={newTaskNotes} onChange={(e) => setNewTaskNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Скасувати</Button>
             <Button onClick={handleCreateTask} disabled={!newTaskRoomId || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Task
+              Створити завдання
             </Button>
           </DialogFooter>
         </DialogContent>

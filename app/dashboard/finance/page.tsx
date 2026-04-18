@@ -78,8 +78,8 @@ export default async function FinancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Finance</h1>
-        <p className="text-muted-foreground">Manage payments and financial records</p>
+        <h1 className="text-3xl font-bold">Фінанси</h1>
+        <p className="text-muted-foreground">Керуйте платежами та фінансовими записами</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -89,7 +89,7 @@ export default async function FinancePage() {
               <DollarSign className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Today's Revenue</p>
+              <p className="text-sm text-muted-foreground">Дохід за сьогодні</p>
               <p className="text-2xl font-bold">${todayRevenue.toFixed(2)}</p>
             </div>
           </div>
@@ -101,7 +101,7 @@ export default async function FinancePage() {
               <TrendingUp className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Month Revenue</p>
+              <p className="text-sm text-muted-foreground">Дохід за місяць</p>
               <p className="text-2xl font-bold">${monthRevenue.toFixed(2)}</p>
             </div>
           </div>
@@ -113,7 +113,7 @@ export default async function FinancePage() {
               <Wallet className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pending Amount</p>
+              <p className="text-sm text-muted-foreground">Сума до сплати</p>
               <p className="text-2xl font-bold">${pendingAmount.toFixed(2)}</p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default async function FinancePage() {
               <TrendingDown className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Open Folios</p>
+              <p className="text-sm text-muted-foreground">Відкриті рахунки</p>
               <p className="text-2xl font-bold">{folios?.length || 0}</p>
             </div>
           </div>
@@ -135,10 +135,10 @@ export default async function FinancePage() {
       <Tabs defaultValue="payments" className="w-full">
         <TabsList>
           <TabsTrigger value="payments">
-            Payments <span className="ml-2 text-xs">({payments?.length || 0})</span>
+            Платежі <span className="ml-2 text-xs">({payments?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="folios">
-            Open Folios <span className="ml-2 text-xs">({folios?.length || 0})</span>
+          Відкриті рахунки <span className="ml-2 text-xs">({folios?.length || 0})</span>
           </TabsTrigger>
         </TabsList>
 

@@ -7,9 +7,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AuraStay - Property Management System",
-  description: "Comprehensive hotel property management system",
-  generator: "v0.app",
+  title: "AuraStay",
+  description: "Система управління готельною нерухомістю",
   icons: {
     icon: [
       {

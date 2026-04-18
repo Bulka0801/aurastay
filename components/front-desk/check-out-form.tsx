@@ -118,35 +118,35 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Reservation Summary</h2>
+        <h2 className="text-xl font-semibold mb-4">Підсумок бронювання</h2>
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Reservation #:</span>
+            <span className="text-muted-foreground">Бронювання №:</span>
             <span className="font-medium">{reservation.reservation_number}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Guest:</span>
+            <span className="text-muted-foreground">Гість:</span>
             <span className="font-medium">
               {reservation.guests.first_name} {reservation.guests.last_name}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Room:</span>
+            <span className="text-muted-foreground">Номер:</span>
             <span>
-              {reservation.reservation_rooms?.[0]?.rooms.room_number || "N/A"} -{" "}
-              {reservation.reservation_rooms?.[0]?.rooms.room_type.name || "N/A"}
+              {reservation.reservation_rooms?.[0]?.rooms.room_number || "Н/Д"} -{" "}
+              {reservation.reservation_rooms?.[0]?.rooms.room_type.name || "Н/Д"}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Check-in:</span>
+            <span className="text-muted-foreground">Заїзд:</span>
             <span>{new Date(reservation.check_in_date).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Check-out:</span>
+            <span className="text-muted-foreground">Виїзд:</span>
             <span>{new Date(reservation.check_out_date).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Nights:</span>
+            <span className="text-muted-foreground">Кількість ночей:</span>
             <span>
               {Math.ceil(
                 (new Date(reservation.check_out_date).getTime() - new Date(reservation.check_in_date).getTime()) /
@@ -156,34 +156,34 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
           </div>
         </div>
       </Card>
-
+  
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
+        <h2 className="text-xl font-semibold mb-4">Деталі оплати</h2>
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total Charges:</span>
+              <span className="text-muted-foreground">Загальна сума:</span>
               <span className="font-medium">${reservation.total_amount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total Paid:</span>
+              <span className="text-muted-foreground">Сплачено:</span>
               <span className="font-medium text-green-600">${totalPaid.toFixed(2)}</span>
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="font-semibold">Balance Due:</span>
+              <span className="font-semibold">До сплати:</span>
               <span className={`font-bold text-lg ${balance > 0 ? "text-red-600" : "text-green-600"}`}>
                 ${balance.toFixed(2)}
               </span>
             </div>
           </div>
-
+  
           {balance > 0 && (
             <>
               <Separator />
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="payment">Payment Amount *</Label>
+                  <Label htmlFor="payment">Сума оплати *</Label>
                   <Input
                     id="payment"
                     type="number"
@@ -199,30 +199,30 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
                     size="sm"
                     onClick={() => setPaymentAmount(balance.toString())}
                   >
-                    Pay Full Balance
+                    Сплатити повністю
                   </Button>
                 </div>
-
+  
                 <div className="space-y-2">
-                  <Label>Payment Method</Label>
+                  <Label>Спосіб оплати</Label>
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="credit_card">Credit Card</SelectItem>
-                      <SelectItem value="debit_card">Debit Card</SelectItem>
-                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="cash">Готівка</SelectItem>
+                      <SelectItem value="credit_card">Кредитна картка</SelectItem>
+                      <SelectItem value="debit_card">Дебетова картка</SelectItem>
+                      <SelectItem value="bank_transfer">Банківський переказ</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             </>
           )}
-
+  
           {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
+  
           <Button
             onClick={handleCheckOut}
             disabled={isLoading || (balance > 0 && !paymentAmount)}
@@ -232,12 +232,12 @@ export function CheckOutForm({ reservation }: CheckOutFormProps) {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                Обробка...
               </>
             ) : (
               <>
                 <LogOut className="mr-2 h-4 w-4" />
-                Complete Check-Out
+                Завершити виїзд
               </>
             )}
           </Button>

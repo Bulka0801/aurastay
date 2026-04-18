@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { formatPriority, formatTaskType } from "@/lib/localization"
 
 interface Task {
   id: string
@@ -40,6 +41,13 @@ const statusIcons = {
   pending: Clock,
   in_progress: AlertCircle,
   completed: CheckCircle,
+}
+
+function formatTaskStatus(status: string) {
+  if (status === "pending") return "Очікує"
+  if (status === "in_progress") return "У процесі"
+  if (status === "completed") return "Виконано"
+  return status
 }
 
 export function TasksList({ tasks }: { tasks: Task[] }) {
@@ -79,30 +87,30 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>
-          All ({tasks.length})
+          Усі ({tasks.length})
         </Button>
         <Button variant={filter === "pending" ? "default" : "outline"} size="sm" onClick={() => setFilter("pending")}>
-          Pending ({tasks.filter((t) => t.status === "pending").length})
+          Очікує ({tasks.filter((t) => t.status === "pending").length})
         </Button>
         <Button
           variant={filter === "in_progress" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("in_progress")}
         >
-          In Progress ({tasks.filter((t) => t.status === "in_progress").length})
+          У процесі ({tasks.filter((t) => t.status === "in_progress").length})
         </Button>
         <Button
           variant={filter === "completed" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("completed")}
         >
-          Completed ({tasks.filter((t) => t.status === "completed").length})
+          Виконано ({tasks.filter((t) => t.status === "completed").length})
         </Button>
       </div>
 
       {filteredTasks.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No tasks found</p>
+          <p className="text-muted-foreground">Завдань не знайдено</p>
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -115,23 +123,23 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
                     <StatusIcon className="h-5 w-5 mt-1 text-muted-foreground" />
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">Room {task.rooms.room_number}</span>
+                        <span className="font-semibold">Номер {task.rooms.room_number}</span>
                         <Badge variant="outline" className="text-xs">
                           {task.rooms.room_type.name}
                         </Badge>
                         <Badge className={priorityColors[task.priority as keyof typeof priorityColors]}>
-                          {task.priority}
+                          {formatPriority(task.priority)}
                         </Badge>
                       </div>
-                      <p className="text-sm capitalize">{task.task_type.replace(/_/g, " ")}</p>
+                      <p className="text-sm">{formatTaskType(task.task_type)}</p>
                       {task.notes && <p className="text-sm text-muted-foreground">{task.notes}</p>}
                       {task.assigned_to_profile && (
                         <p className="text-xs text-muted-foreground">
-                          Assigned to: {task.assigned_to_profile.first_name} {task.assigned_to_profile.last_name}
+                          Виконавець: {task.assigned_to_profile.first_name} {task.assigned_to_profile.last_name}
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Created: {new Date(task.created_at).toLocaleString()}
+                        Створено: {new Date(task.created_at).toLocaleString("uk-UA")}
                       </p>
                     </div>
                   </div>
@@ -145,9 +153,9 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="pending">{formatTaskStatus("pending")}</SelectItem>
+                        <SelectItem value="in_progress">{formatTaskStatus("in_progress")}</SelectItem>
+                        <SelectItem value="completed">{formatTaskStatus("completed")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

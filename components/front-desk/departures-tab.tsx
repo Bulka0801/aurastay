@@ -45,17 +45,17 @@ export function DeparturesTab({ departures }: { departures: Departure[] }) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name or reservation number..."
+            placeholder="Пошук за ім’ям або номером бронювання..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
       </div>
-
+  
       {filteredDepartures.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No departures scheduled for today</p>
+          <p className="text-muted-foreground">На сьогодні виїздів не заплановано</p>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -67,17 +67,17 @@ export function DeparturesTab({ departures }: { departures: Departure[] }) {
                     <h3 className="font-semibold">
                       {departure.guests.first_name} {departure.guests.last_name}
                     </h3>
-                    <Badge>Checked In</Badge>
+                    <Badge>Заселено</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{departure.reservation_number}</p>
                   <div className="flex gap-4 text-sm">
                     <span>
-                      Room: {departure.reservation_rooms[0]?.rooms.room_number || "N/A"} (
-                      {departure.reservation_rooms[0]?.rooms.room_type.name || "N/A"})
+                      Номер: {departure.reservation_rooms[0]?.rooms.room_number || "Н/Д"} (
+                      {departure.reservation_rooms[0]?.rooms.room_type.name || "Н/Д"})
                     </span>
-                    <span>Total: ${departure.total_amount.toFixed(2)}</span>
+                    <span>Сума: ${departure.total_amount.toFixed(2)}</span>
                     <span>
-                      Nights:{" "}
+                      Ночей:{" "}
                       {Math.ceil(
                         (new Date(departure.check_out_date).getTime() - new Date(departure.check_in_date).getTime()) /
                           (1000 * 60 * 60 * 24),
@@ -89,11 +89,11 @@ export function DeparturesTab({ departures }: { departures: Departure[] }) {
                   <Link href={`/dashboard/front-desk/check-out/${departure.id}`}>
                     <Button>
                       <LogOut className="mr-2 h-4 w-4" />
-                      Check Out
+                      Оформити виїзд
                     </Button>
                   </Link>
                   <Link href={`/dashboard/reservations/${departure.id}`}>
-                    <Button variant="outline">View Details</Button>
+                    <Button variant="outline">Переглянути деталі</Button>
                   </Link>
                 </div>
               </div>

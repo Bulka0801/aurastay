@@ -71,20 +71,20 @@ export default async function FrontDeskPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Front Desk</h1>
-        <p className="text-muted-foreground">Manage check-ins, check-outs, and in-house guests</p>
+        <h1 className="text-3xl font-bold">Рецепція</h1>
+        <p className="text-muted-foreground">Керуйте заселеннями, виселеннями та гостями, що проживають</p>
       </div>
 
       <Tabs defaultValue="arrivals" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="arrivals">
-            Arrivals <span className="ml-2 text-xs">({arrivals?.length || 0})</span>
+            Заїзди <span className="ml-2 text-xs">({arrivals?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="departures">
-            Departures <span className="ml-2 text-xs">({departures?.length || 0})</span>
+            Проживають <span className="ml-2 text-xs">({departures?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="inhouse">
-            In-House <span className="ml-2 text-xs">({inHouse?.length || 0})</span>
+            Проживають <span className="ml-2 text-xs">({inHouse?.length || 0})</span>
           </TabsTrigger>
         </TabsList>
 

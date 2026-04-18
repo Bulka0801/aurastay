@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
+import { formatCurrency, formatDateTime, formatPaymentMethod } from "@/lib/localization"
 
 interface Payment {
   id: string
@@ -45,11 +46,11 @@ export function PaymentsTable({ payments }: { payments: Payment[] }) {
 
   return (
     <Card>
-      <div className="p-4 border-b">
+      <div className="border-b p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by guest name or reservation number..."
+            placeholder="Пошук за ім’ям гостя або номером бронювання..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -61,41 +62,38 @@ export function PaymentsTable({ payments }: { payments: Payment[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date & Time</TableHead>
-              <TableHead>Guest</TableHead>
-              <TableHead>Reservation</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead>Дата й час</TableHead>
+              <TableHead>Гість</TableHead>
+              <TableHead>Бронювання</TableHead>
+              <TableHead>Сума</TableHead>
+              <TableHead>Спосіб</TableHead>
+              <TableHead>Тип</TableHead>
+              <TableHead>Примітки</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredPayments.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No payments found
+                  Платежів не знайдено
                 </TableCell>
               </TableRow>
             ) : (
               filteredPayments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="text-sm">{new Date(payment.created_at).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm">{formatDateTime(payment.created_at)}</TableCell>
                   <TableCell className="font-medium">
                     {payment.folios.reservations.guests.first_name} {payment.folios.reservations.guests.last_name}
                   </TableCell>
                   <TableCell className="text-sm">{payment.folios.reservations.reservation_number}</TableCell>
-                  <TableCell className="font-bold text-green-600">${payment.amount.toFixed(2)}</TableCell>
+                  <TableCell className="font-bold text-green-600">{formatCurrency(payment.amount)}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={paymentMethodColors[payment.payment_method] || "bg-gray-100 text-gray-800"}
-                    >
-                      {payment.payment_method.replace(/_/g, " ")}
+                    <Badge variant="outline" className={paymentMethodColors[payment.payment_method] || "bg-gray-100 text-gray-800"}>
+                      {formatPaymentMethod(payment.payment_method)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="capitalize">{payment.transaction_type}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{payment.notes || "-"}</TableCell>
+                  <TableCell className="capitalize">{payment.transaction_type === "payment" ? "Оплата" : payment.transaction_type}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{payment.notes || "—"}</TableCell>
                 </TableRow>
               ))
             )}

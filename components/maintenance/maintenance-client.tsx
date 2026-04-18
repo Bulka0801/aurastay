@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { createClient } from "@/lib/supabase/client"
+import { formatMaintenanceStatus, formatPriority } from "@/lib/localization"
 import {
   Search,
   Plus,
@@ -64,27 +65,35 @@ interface StaffMember {
 }
 
 const categoryConfig: Record<string, { label: string; icon: typeof Wrench; color: string }> = {
-  plumbing: { label: "Plumbing", icon: Droplets, color: "text-blue-600" },
-  electrical: { label: "Electrical", icon: Zap, color: "text-amber-600" },
-  hvac: { label: "HVAC", icon: Thermometer, color: "text-sky-600" },
-  lighting: { label: "Lighting", icon: Lightbulb, color: "text-yellow-600" },
-  door_lock: { label: "Door / Lock", icon: DoorOpen, color: "text-slate-600" },
-  structural: { label: "Structural", icon: HardHat, color: "text-orange-600" },
-  general: { label: "General", icon: Wrench, color: "text-gray-600" },
+  plumbing: { label: "Сантехніка", icon: Droplets, color: "text-blue-600" },
+  electrical: { label: "Електрика", icon: Zap, color: "text-amber-600" },
+  hvac: { label: "ОВіК / клімат", icon: Thermometer, color: "text-sky-600" },
+  lighting: { label: "Освітлення", icon: Lightbulb, color: "text-yellow-600" },
+  door_lock: { label: "Двері / замок", icon: DoorOpen, color: "text-slate-600" },
+  structural: { label: "Будівельне", icon: HardHat, color: "text-orange-600" },
+  general: { label: "Загальне", icon: Wrench, color: "text-gray-600" },
 }
 
-const priorityConfig: Record<string, { label: string; class: string; border: string }> = {
-  urgent: { label: "URGENT", class: "bg-red-600 text-white", border: "border-l-red-600" },
-  high: { label: "High", class: "bg-red-100 text-red-800", border: "border-l-red-400" },
-  medium: { label: "Medium", class: "bg-amber-100 text-amber-800", border: "border-l-amber-400" },
-  low: { label: "Low", class: "bg-sky-100 text-sky-800", border: "border-l-sky-400" },
+const priorityConfig: Record<string, { class: string; border: string }> = {
+  urgent: { class: "bg-red-600 text-white", border: "border-l-red-600" },
+  high: { class: "bg-red-100 text-red-800", border: "border-l-red-400" },
+  medium: { class: "bg-amber-100 text-amber-800", border: "border-l-amber-400" },
+  low: { class: "bg-sky-100 text-sky-800", border: "border-l-sky-400" },
 }
 
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: "Pending", color: "text-amber-700", bg: "bg-amber-50" },
-  in_progress: { label: "In Progress", color: "text-blue-700", bg: "bg-blue-50" },
-  completed: { label: "Completed", color: "text-emerald-700", bg: "bg-emerald-50" },
-  cancelled: { label: "Cancelled", color: "text-gray-500", bg: "bg-gray-50" },
+const statusConfig: Record<string, { color: string; bg: string }> = {
+  pending: { color: "text-amber-700", bg: "bg-amber-50" },
+  in_progress: { color: "text-blue-700", bg: "bg-blue-50" },
+  completed: { color: "text-emerald-700", bg: "bg-emerald-50" },
+  cancelled: { color: "text-gray-500", bg: "bg-gray-50" },
+}
+
+function pluralRequests(count: number) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return "заявка"
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return "заявки"
+  return "заявок"
 }
 
 async function fetchRequests() {
@@ -277,19 +286,19 @@ export function MaintenanceClient({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-balance">Maintenance Requests</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-balance">Технічні заявки</h1>
           <p className="text-sm text-muted-foreground">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {new Date().toLocaleDateString("uk-UA", { weekday: "long", month: "long", day: "numeric" })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
+            Оновити
           </Button>
           <Button size="sm" onClick={() => setNewOpen(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New Request
+            Нова заявка
           </Button>
         </div>
       </div>
@@ -303,7 +312,7 @@ export function MaintenanceClient({
             </div>
             <div>
               <p className="text-2xl font-bold text-amber-700">{pendingCount}</p>
-              <p className="text-xs font-medium text-amber-600">Pending</p>
+              <p className="text-xs font-medium text-amber-600">{formatMaintenanceStatus("pending")}</p>
             </div>
           </CardContent>
         </Card>
@@ -314,7 +323,7 @@ export function MaintenanceClient({
             </div>
             <div>
               <p className="text-2xl font-bold text-blue-700">{inProgressCount}</p>
-              <p className="text-xs font-medium text-blue-600">In Progress</p>
+              <p className="text-xs font-medium text-blue-600">{formatMaintenanceStatus("in_progress")}</p>
             </div>
           </CardContent>
         </Card>
@@ -325,7 +334,7 @@ export function MaintenanceClient({
             </div>
             <div>
               <p className="text-2xl font-bold text-emerald-700">{completedTodayCount}</p>
-              <p className="text-xs font-medium text-emerald-600">Resolved Today</p>
+              <p className="text-xs font-medium text-emerald-600">Закрито сьогодні</p>
             </div>
           </CardContent>
         </Card>
@@ -336,7 +345,7 @@ export function MaintenanceClient({
             </div>
             <div>
               <p className={`text-2xl font-bold ${urgentCount > 0 ? "text-red-700" : "text-slate-500"}`}>{urgentCount}</p>
-              <p className={`text-xs font-medium ${urgentCount > 0 ? "text-red-600" : "text-slate-400"}`}>Urgent / High</p>
+              <p className={`text-xs font-medium ${urgentCount > 0 ? "text-red-600" : "text-slate-400"}`}>Термінові / високі</p>
             </div>
           </CardContent>
         </Card>
@@ -347,14 +356,14 @@ export function MaintenanceClient({
         <CardContent className="flex items-center gap-4 p-4">
           <div className="flex-1">
             <div className="mb-1.5 flex items-center justify-between text-sm">
-              <span className="font-medium">Today&apos;s Resolution Rate</span>
+              <span className="font-medium">Рівень закриття за сьогодні</span>
               <span className="text-muted-foreground">{resolveRate}%</span>
             </div>
             <Progress value={resolveRate} className="h-2" />
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <p>{completedTodayCount} resolved</p>
-            <p>{activeTotal} remaining</p>
+            <p>{completedTodayCount} закрито</p>
+            <p>{activeTotal} залишилось</p>
           </div>
         </CardContent>
       </Card>
@@ -365,7 +374,7 @@ export function MaintenanceClient({
           <CardContent className="flex items-center gap-3 p-3">
             <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 animate-pulse" />
             <p className="text-sm font-semibold text-red-800">
-              {urgentCount} urgent/high priority request{urgentCount > 1 ? "s" : ""} need immediate attention!
+              Потрібна увага: {urgentCount} {pluralRequests(urgentCount)} з пріоритетом “Терміновий/Високий”.
             </p>
           </CardContent>
         </Card>
@@ -376,7 +385,7 @@ export function MaintenanceClient({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by description, room, category..."
+            placeholder="Пошук за описом, номером, категорією..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -387,11 +396,11 @@ export function MaintenanceClient({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="active">Активні</SelectItem>
+            <SelectItem value="all">Усі</SelectItem>
+            <SelectItem value="pending">{formatMaintenanceStatus("pending")}</SelectItem>
+            <SelectItem value="in_progress">{formatMaintenanceStatus("in_progress")}</SelectItem>
+            <SelectItem value="completed">{formatMaintenanceStatus("completed")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -399,11 +408,11 @@ export function MaintenanceClient({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Priority</SelectItem>
-            <SelectItem value="urgent">Urgent</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="all">Усі пріоритети</SelectItem>
+            <SelectItem value="urgent">{formatPriority("urgent")}</SelectItem>
+            <SelectItem value="high">{formatPriority("high")}</SelectItem>
+            <SelectItem value="medium">{formatPriority("medium")}</SelectItem>
+            <SelectItem value="low">{formatPriority("low")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -411,7 +420,7 @@ export function MaintenanceClient({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Category</SelectItem>
+            <SelectItem value="all">Усі категорії</SelectItem>
             {Object.entries(categoryConfig).map(([key, cfg]) => (
               <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
             ))}
@@ -423,7 +432,7 @@ export function MaintenanceClient({
       {isManager && initialStaff.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Staff Workload</CardTitle>
+            <CardTitle className="text-sm font-semibold">Навантаження персоналу</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
@@ -451,8 +460,8 @@ export function MaintenanceClient({
       {/* Requests */}
       <Tabs defaultValue="kanban">
         <TabsList>
-          <TabsTrigger value="kanban">Board View</TabsTrigger>
-          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="kanban">Дошка</TabsTrigger>
+          <TabsTrigger value="list">Список</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban" className="mt-4">
@@ -461,7 +470,7 @@ export function MaintenanceClient({
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-amber-500" />
-                <h3 className="text-sm font-semibold">Pending</h3>
+                <h3 className="text-sm font-semibold">{formatMaintenanceStatus("pending")}</h3>
                 <Badge variant="secondary" className="ml-auto text-xs">{pendingCount}</Badge>
               </div>
               <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto">
@@ -478,7 +487,7 @@ export function MaintenanceClient({
                   />
                 ))}
                 {filteredRequests.filter((r) => r.status === "pending").length === 0 && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">No pending requests</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">Немає заявок в очікуванні</p>
                 )}
               </div>
             </div>
@@ -486,7 +495,7 @@ export function MaintenanceClient({
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-blue-500" />
-                <h3 className="text-sm font-semibold">In Progress</h3>
+                <h3 className="text-sm font-semibold">{formatMaintenanceStatus("in_progress")}</h3>
                 <Badge variant="secondary" className="ml-auto text-xs">{inProgressCount}</Badge>
               </div>
               <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto">
@@ -503,7 +512,7 @@ export function MaintenanceClient({
                   />
                 ))}
                 {filteredRequests.filter((r) => r.status === "in_progress").length === 0 && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">No requests in progress</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">Немає заявок у процесі</p>
                 )}
               </div>
             </div>
@@ -511,7 +520,7 @@ export function MaintenanceClient({
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                <h3 className="text-sm font-semibold">Completed</h3>
+                <h3 className="text-sm font-semibold">{formatMaintenanceStatus("completed")}</h3>
                 <Badge variant="secondary" className="ml-auto text-xs">{completedTodayCount}</Badge>
               </div>
               <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto">
@@ -539,7 +548,7 @@ export function MaintenanceClient({
             {filteredRequests.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <Wrench className="mb-3 h-10 w-10" />
-                <p>No maintenance requests found</p>
+                <p>Технічних заявок не знайдено</p>
               </div>
             )}
             {filteredRequests.map((req) => (
@@ -562,12 +571,12 @@ export function MaintenanceClient({
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Maintenance Request</DialogTitle>
+            <DialogTitle>Нова технічна заявка</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Category</Label>
+                <Label>Категорія</Label>
                 <Select value={newCategory} onValueChange={setNewCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -578,34 +587,34 @@ export function MaintenanceClient({
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Priority</Label>
+                <Label>Пріоритет</Label>
                 <Select value={newPriority} onValueChange={setNewPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">{formatPriority("low")}</SelectItem>
+                    <SelectItem value="medium">{formatPriority("medium")}</SelectItem>
+                    <SelectItem value="high">{formatPriority("high")}</SelectItem>
+                    <SelectItem value="urgent">{formatPriority("urgent")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Room (optional)</Label>
+              <Label>Номер (необов&apos;язково)</Label>
               <Select value={newRoomId} onValueChange={setNewRoomId}>
-                <SelectTrigger><SelectValue placeholder="No specific room" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Без прив&apos;язки до номера" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No specific room</SelectItem>
+                  <SelectItem value="none">Без прив&apos;язки до номера</SelectItem>
                   {initialRooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>Room {r.room_number} (F{r.floor})</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>Номер {r.room_number} (пов. {r.floor})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Description</Label>
+              <Label>Опис</Label>
               <Textarea
-                placeholder="Describe the issue in detail..."
+                placeholder="Опишіть проблему детально..."
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 rows={3}
@@ -613,11 +622,11 @@ export function MaintenanceClient({
             </div>
             {isManager && (
               <div className="flex flex-col gap-2">
-                <Label>Assign to (optional)</Label>
+                <Label>Призначити (необов&apos;язково)</Label>
                 <Select value={newStaff} onValueChange={setNewStaff}>
-                  <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Без виконавця" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Unassigned</SelectItem>
+                    <SelectItem value="none">Без виконавця</SelectItem>
                     {initialStaff.map((s) => (
                       <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
                     ))}
@@ -627,10 +636,10 @@ export function MaintenanceClient({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>Скасувати</Button>
             <Button onClick={handleCreate} disabled={!newDesc.trim() || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Request
+              Створити заявку
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -640,7 +649,7 @@ export function MaintenanceClient({
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Request {assignReq?.rooms ? `- Room ${assignReq.rooms.room_number}` : ""}</DialogTitle>
+            <DialogTitle>Призначити заявку {assignReq?.rooms ? `— номер ${assignReq.rooms.room_number}` : ""}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             {assignReq && (
@@ -650,15 +659,15 @@ export function MaintenanceClient({
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label>Assign to</Label>
+              <Label>Призначити на</Label>
               <Select value={assignStaff} onValueChange={setAssignStaff}>
-                <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Оберіть працівника..." /></SelectTrigger>
                 <SelectContent>
                   {initialStaff.map((s) => {
                     const load = allRequests.filter((r) => r.assigned_to === s.id && r.status !== "completed" && r.status !== "cancelled").length
                     return (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name} ({load} active)
+                        {s.first_name} {s.last_name} ({load} активних)
                       </SelectItem>
                     )
                   })}
@@ -667,10 +676,10 @@ export function MaintenanceClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Скасувати</Button>
             <Button onClick={handleAssign} disabled={!assignStaff || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign & Start
+              Призначити та почати
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -680,20 +689,20 @@ export function MaintenanceClient({
       <Dialog open={resolveOpen} onOpenChange={setResolveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resolve Request</DialogTitle>
+            <DialogTitle>Закрити заявку</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             {resolveReq && (
               <div className="rounded-lg bg-muted p-3 text-sm">
                 <p className="font-medium capitalize">{categoryConfig[resolveReq.category]?.label || resolveReq.category}</p>
                 <p className="mt-1 text-muted-foreground">{resolveReq.description}</p>
-                {resolveReq.rooms && <p className="mt-1 font-medium">Room {resolveReq.rooms.room_number}</p>}
+                {resolveReq.rooms && <p className="mt-1 font-medium">Номер {resolveReq.rooms.room_number}</p>}
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label>Resolution Notes (optional)</Label>
+              <Label>Примітки щодо виконання (необов&apos;язково)</Label>
               <Textarea
-                placeholder="What was done to resolve this issue..."
+                placeholder="Що було зроблено для усунення проблеми..."
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
                 rows={3}
@@ -701,10 +710,10 @@ export function MaintenanceClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setResolveOpen(false)}>Скасувати</Button>
             <Button onClick={handleResolve} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Mark as Resolved
+              Позначити як виконано
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -740,9 +749,9 @@ function RequestCard({
   const timeSinceCreated = () => {
     const diff = Date.now() - new Date(req.created_at).getTime()
     const hours = Math.floor(diff / (1000 * 60 * 60))
-    if (hours < 1) return `${Math.floor(diff / (1000 * 60))}m ago`
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.floor(hours / 24)}d ago`
+    if (hours < 1) return `${Math.floor(diff / (1000 * 60))} хв тому`
+    if (hours < 24) return `${hours} год тому`
+    return `${Math.floor(hours / 24)} дн тому`
   }
 
   return (
@@ -751,25 +760,25 @@ function RequestCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <CatIcon className={`h-4 w-4 ${catCfg.color}`} />
-            <span className="text-sm font-semibold capitalize">{catCfg.label}</span>
+            <span className="text-sm font-semibold">{catCfg.label}</span>
             {req.rooms && (
               <Badge variant="outline" className="text-xs">
-                Room {req.rooms.room_number}
+                Номер {req.rooms.room_number}
               </Badge>
             )}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${pCfg.class}`}>
-              {pCfg.label}
+              {formatPriority(req.priority)}
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{req.description}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <span className={`rounded px-1.5 py-0.5 font-medium ${sCfg.bg} ${sCfg.color}`}>
-              {sCfg.label}
+              {formatMaintenanceStatus(req.status)}
             </span>
             {req.assigned_profile && (
               <span className="font-medium text-primary">
                 {req.assigned_profile.first_name} {req.assigned_profile.last_name}
-                {isMyRequest && " (you)"}
+                {isMyRequest && " (ви)"}
               </span>
             )}
             <span>{timeSinceCreated()}</span>
@@ -783,7 +792,7 @@ function RequestCard({
           {req.status === "pending" && isManager && (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onAssign}>
               <UserPlus className="mr-1 h-3 w-3" />
-              Assign
+              Призначити
             </Button>
           )}
           {req.status === "pending" && (
@@ -794,7 +803,7 @@ function RequestCard({
               onClick={() => onStatusChange(req.id, "in_progress")}
             >
               {updatingId === req.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ArrowRight className="mr-1 h-3 w-3" />}
-              Start
+              Почати
             </Button>
           )}
           {req.status === "in_progress" && (
@@ -805,7 +814,7 @@ function RequestCard({
               onClick={onResolve}
             >
               {updatingId === req.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-              Resolve
+              Закрити
             </Button>
           )}
         </div>

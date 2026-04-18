@@ -14,7 +14,7 @@ export function RevenueReport({ payments }: { payments: Payment[] }) {
   // Group by date
   const revenueByDate = payments.reduce(
     (acc, payment) => {
-      const date = new Date(payment.created_at).toLocaleDateString()
+      const date = new Date(payment.created_at).toLocaleDateString("uk-UA")
       acc[date] = (acc[date] || 0) + payment.amount
       return acc
     },
@@ -26,25 +26,25 @@ export function RevenueReport({ payments }: { payments: Payment[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Revenue Summary (30 days)</h3>
+        <h3 className="text-lg font-semibold mb-4">Підсумок доходів (30 днів)</h3>
         <div className="space-y-4">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
+            <p className="text-sm text-muted-foreground mb-1">Загальний дохід</p>
             <p className="text-3xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Total Transactions</p>
+            <p className="text-sm text-muted-foreground mb-1">Кількість транзакцій</p>
             <p className="text-3xl font-bold">{payments.length}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Average Transaction</p>
+            <p className="text-sm text-muted-foreground mb-1">Середня транзакція</p>
             <p className="text-3xl font-bold">${averageTransaction.toFixed(2)}</p>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Daily Revenue</h3>
+        <h3 className="text-lg font-semibold mb-4">Дохід по днях</h3>
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {sortedDates.slice(0, 10).map(([date, amount]) => (
             <div key={date} className="flex items-center justify-between py-2 border-b">

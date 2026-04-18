@@ -45,15 +45,15 @@ export default async function ReservationDetailPage({ params }: { params: Promis
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Reservation #{reservation.reservation_number}
+          Бронювання #{reservation.reservation_number}
           </h1>
-          <p className="text-slate-600">View and manage reservation details</p>
+          <p className="text-slate-600">Перегляд і керування деталями бронювання</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link href={`/dashboard/reservations/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
-              Edit
+              Редагувати
             </Link>
           </Button>
           <Badge className={statusColors[reservation.status] || "bg-gray-100 text-gray-800"}>
@@ -67,33 +67,33 @@ export default async function ReservationDetailPage({ params }: { params: Promis
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Guest Information
+              Інформація про гостя
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm text-slate-600">Name</p>
+              <p className="text-sm text-slate-600">Ім’я</p>
               <p className="font-medium">
                 {reservation.guests.first_name} {reservation.guests.last_name}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Email</p>
+              <p className="text-sm text-slate-600">Електронна пошта</p>
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-slate-500" />
                 {reservation.guests.email}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Phone</p>
+              <p className="text-sm text-slate-600">Телефон</p>
               <p className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-slate-500" />
-                {reservation.guests.phone || "N/A"}
+                {reservation.guests.phone || "Немає даних"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Country</p>
-              <p>{reservation.guests.country || "N/A"}</p>
+              <p className="text-sm text-slate-600">Країна</p>
+              <p>{reservation.guests.country || "Немає даних"}</p>
             </div>
           </CardContent>
         </Card>
@@ -102,20 +102,20 @@ export default async function ReservationDetailPage({ params }: { params: Promis
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Stay Information
+              Інформація про проживання
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm text-slate-600">Check-in Date</p>
+              <p className="text-sm text-slate-600">Дата заїзду</p>
               <p className="font-medium">{new Date(reservation.check_in_date).toLocaleDateString()}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Check-out Date</p>
+              <p className="text-sm text-slate-600">Дата виїзду</p>
               <p className="font-medium">{new Date(reservation.check_out_date).toLocaleDateString()}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Nights</p>
+              <p className="text-sm text-slate-600">Кількість ночей</p>
               <p className="font-medium">
                 {Math.ceil(
                   (new Date(reservation.check_out_date).getTime() - new Date(reservation.check_in_date).getTime()) /
@@ -124,9 +124,9 @@ export default async function ReservationDetailPage({ params }: { params: Promis
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Guests</p>
+              <p className="text-sm text-slate-600">Гості</p>
               <p className="font-medium">
-                {reservation.adults} Adults, {reservation.children} Children
+                {reservation.adults} дорослих, {reservation.children} дітей
               </p>
             </div>
           </CardContent>
@@ -134,21 +134,21 @@ export default async function ReservationDetailPage({ params }: { params: Promis
 
         <Card>
           <CardHeader>
-            <CardTitle>Room Details</CardTitle>
+            <CardTitle>Інформація про номер</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {reservation.reservation_rooms.map((rr: any) => (
               <div key={rr.id}>
                 <div>
-                  <p className="text-sm text-slate-600">Room Number</p>
-                  <p className="font-medium">{rr.rooms?.room_number || "Not Assigned"}</p>
+                  <p className="text-sm text-slate-600">Номер кімнати</p>
+                  <p className="font-medium">{rr.rooms?.room_number || "Не призначено"}</p>
                 </div>
                 <div className="mt-2">
-                  <p className="text-sm text-slate-600">Room Type</p>
+                  <p className="text-sm text-slate-600">Тип номера</p>
                   <p className="font-medium">{rr.rooms?.room_types?.name}</p>
                 </div>
                 <div className="mt-2">
-                  <p className="text-sm text-slate-600">Rate Plan</p>
+                  <p className="text-sm text-slate-600">Тарифний план</p>
                   <p className="font-medium">{reservation.rate_plans?.name}</p>
                 </div>
               </div>
@@ -160,30 +160,30 @@ export default async function ReservationDetailPage({ params }: { params: Promis
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Financial Information
+              Фінансова інформація
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm text-slate-600">Total Amount</p>
+              <p className="text-sm text-slate-600">Загальна сума</p>
               <p className="text-2xl font-bold">${Number(reservation.total_amount).toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Paid Amount</p>
+              <p className="text-sm text-slate-600">Сплачена сума</p>
               <p className="font-medium text-green-600">${Number(reservation.paid_amount).toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Balance</p>
+              <p className="text-sm text-slate-600">Залишок до сплати</p>
               <p className="font-medium text-orange-600">${Number(reservation.balance).toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-600">Payment Status</p>
+              <p className="text-sm text-slate-600">Статус оплати</p>
               <Badge variant={Number(reservation.balance) === 0 ? "default" : "secondary"}>
                 {Number(reservation.balance) === 0
-                  ? "Paid"
+                  ? "Сплачено"
                   : Number(reservation.paid_amount) > 0
-                    ? "Partial"
-                    : "Pending"}
+                    ? "Частково сплачено"
+                    : "Очікує оплату"}
               </Badge>
             </div>
           </CardContent>
@@ -193,7 +193,7 @@ export default async function ReservationDetailPage({ params }: { params: Promis
       {reservation.special_requests && (
         <Card>
           <CardHeader>
-            <CardTitle>Special Requests</CardTitle>
+            <CardTitle>Особливі побажання</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-slate-700">{reservation.special_requests}</p>
