@@ -1,5 +1,5 @@
 "use client"
-
+// I HAVE QUESTIONS ABOUT THIS FILE
 import type React from "react"
 
 import { useState } from "react"
@@ -94,7 +94,7 @@ export function NewUserForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name *</Label>
+          <Label htmlFor="firstName">Ім’я користувача *</Label>
           <Input
             id="firstName"
             value={formData.firstName}
@@ -104,7 +104,7 @@ export function NewUserForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name *</Label>
+          <Label htmlFor="lastName">Прізвище *</Label>
           <Input
             id="lastName"
             value={formData.lastName}
@@ -116,7 +116,7 @@ export function NewUserForm() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
+          <Label htmlFor="email">Електронна пошта *</Label>
           <Input
             id="email"
             type="email"
@@ -127,7 +127,7 @@ export function NewUserForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">Номер телефону</Label>
           <Input
             id="phone"
             value={formData.phone}
@@ -138,7 +138,7 @@ export function NewUserForm() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="employeeId">Employee ID</Label>
+          <Label htmlFor="employeeId">ID працівника</Label>
           <Input
             id="employeeId"
             value={formData.employeeId}
@@ -147,7 +147,7 @@ export function NewUserForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="department">Department</Label>
+          <Label htmlFor="department">Відділ</Label>
           <Input
             id="department"
             value={formData.department}
@@ -157,10 +157,10 @@ export function NewUserForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="role">Role *</Label>
+        <Label htmlFor="role">Роль *</Label>
         <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
           <SelectTrigger>
-            <SelectValue placeholder="Select role" />
+            <SelectValue placeholder="Оберіть роль" />
           </SelectTrigger>
           <SelectContent>
             {roles.map((role) => (
@@ -173,7 +173,7 @@ export function NewUserForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password *</Label>
+        <Label htmlFor="password">Пароль *</Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
@@ -194,10 +194,10 @@ export function NewUserForm() {
             </Button>
           </div>
           <Button type="button" variant="outline" onClick={generatePassword}>
-            Generate
+            Задати автоматично
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+        <p className="text-xs text-muted-foreground">Від 6 символів</p>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -206,23 +206,23 @@ export function NewUserForm() {
           checked={formData.isActive}
           onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
         />
-        <Label htmlFor="isActive">Active User</Label>
+        <Label htmlFor="isActive">Активний користувач</Label>
       </div>
 
       {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       <div className="flex gap-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
+          Скасувати
         </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
+              Створення...
             </>
           ) : (
-            "Create User"
+            "Створити нового користувача"
           )}
         </Button>
       </div>

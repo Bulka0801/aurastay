@@ -60,7 +60,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
           <Input
             type="search"
-            placeholder="Search guests, reservations, rooms..."
+            placeholder="Пошук гостей, бронювань, номерів..."
             className="w-full bg-slate-50 pl-8"
           />
         </div>
@@ -97,12 +97,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             <User className="mr-2 h-4 w-4" />
-            Profile Settings
+            Налаштування профілю
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
             <LogOut className="mr-2 h-4 w-4" />
-            {isLoggingOut ? "Logging out..." : "Logout"}
+            {isLoggingOut ? "Вихід..." : "Вийти"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

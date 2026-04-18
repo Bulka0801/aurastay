@@ -85,7 +85,7 @@ export function RoomStatusGrid({ rooms, onRoomClick }: RoomStatusGridProps) {
       {floors.map((floor) => (
         <Card key={floor}>
           <CardHeader>
-            <CardTitle className="text-lg">Floor {floor}</CardTitle>
+            <CardTitle className="text-lg">Поверх {floor}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6">

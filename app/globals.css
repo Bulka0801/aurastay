@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color scheme for hotel management system - professional blue-gray palette */
+/* Кольорова схема для системи управління готелем – професійна палітра синьо-сірих відтінків */  
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

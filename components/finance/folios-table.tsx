@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Eye } from "lucide-react"
 import Link from "next/link"
+import { formatCurrency, formatDate } from "@/lib/localization"
 
 interface Folio {
   id: string
@@ -38,11 +39,11 @@ export function FoliosTable({ folios }: { folios: Folio[] }) {
 
   return (
     <Card>
-      <div className="p-4 border-b">
+      <div className="border-b p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by guest name or reservation number..."
+            placeholder="Пошук за ім’ям гостя або номером бронювання..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -54,21 +55,21 @@ export function FoliosTable({ folios }: { folios: Folio[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Guest</TableHead>
-              <TableHead>Reservation</TableHead>
-              <TableHead>Check-in</TableHead>
-              <TableHead>Check-out</TableHead>
-              <TableHead>Total Charges</TableHead>
-              <TableHead>Payments</TableHead>
-              <TableHead>Balance</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Гість</TableHead>
+              <TableHead>Бронювання</TableHead>
+              <TableHead>Заїзд</TableHead>
+              <TableHead>Виїзд</TableHead>
+              <TableHead>Нарахування</TableHead>
+              <TableHead>Оплати</TableHead>
+              <TableHead>Баланс</TableHead>
+              <TableHead>Дії</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredFolios.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground">
-                  No open folios found
+                  Відкритих рахунків не знайдено
                 </TableCell>
               </TableRow>
             ) : (
@@ -78,22 +79,18 @@ export function FoliosTable({ folios }: { folios: Folio[] }) {
                     {folio.guests.first_name} {folio.guests.last_name}
                   </TableCell>
                   <TableCell className="text-sm">{folio.reservations.reservation_number}</TableCell>
-                  <TableCell className="text-sm">
-                    {new Date(folio.reservations.check_in_date).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {new Date(folio.reservations.check_out_date).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="font-medium">${folio.total_charges.toFixed(2)}</TableCell>
-                  <TableCell className="text-green-600">${folio.total_payments.toFixed(2)}</TableCell>
+                  <TableCell className="text-sm">{formatDate(folio.reservations.check_in_date)}</TableCell>
+                  <TableCell className="text-sm">{formatDate(folio.reservations.check_out_date)}</TableCell>
+                  <TableCell className="font-medium">{formatCurrency(folio.total_charges)}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(folio.total_payments)}</TableCell>
                   <TableCell>
                     <span className={`font-bold ${folio.balance > 0 ? "text-red-600" : "text-green-600"}`}>
-                      ${folio.balance.toFixed(2)}
+                      {formatCurrency(folio.balance)}
                     </span>
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/finance/folios/${folio.id}`}>
+                      <Link href={`/dashboard/finance/folios/${folio.id}`} aria-label="Переглянути рахунок">
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>

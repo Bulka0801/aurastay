@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { formatRoomStatus } from "@/lib/localization"
 
 interface Room {
   id: string
@@ -75,38 +76,38 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>
-            All ({rooms.length})
+            Усі ({rooms.length})
           </Button>
           <Button
             variant={filter === "available" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("available")}
           >
-            Available ({statusCounts.available})
+            {formatRoomStatus("available")} ({statusCounts.available})
           </Button>
           <Button variant={filter === "dirty" ? "default" : "outline"} size="sm" onClick={() => setFilter("dirty")}>
-            Dirty ({statusCounts.dirty})
+            {formatRoomStatus("dirty")} ({statusCounts.dirty})
           </Button>
           <Button
             variant={filter === "cleaning" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("cleaning")}
           >
-            Cleaning ({statusCounts.cleaning})
+            {formatRoomStatus("cleaning")} ({statusCounts.cleaning})
           </Button>
           <Button
             variant={filter === "occupied" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("occupied")}
           >
-            Occupied ({statusCounts.occupied})
+            {formatRoomStatus("occupied")} ({statusCounts.occupied})
           </Button>
           <Button
             variant={filter === "maintenance" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("maintenance")}
           >
-            Maintenance ({statusCounts.maintenance})
+            {formatRoomStatus("maintenance")} ({statusCounts.maintenance})
           </Button>
         </div>
       </div>
@@ -115,7 +116,7 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
         .sort(([a], [b]) => Number(b) - Number(a))
         .map(([floor, floorRooms]) => (
           <div key={floor} className="space-y-3">
-            <h3 className="text-lg font-semibold">Floor {floor}</h3>
+            <h3 className="text-lg font-semibold">Поверх {floor}</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {floorRooms
                 .sort((a, b) => a.room_number.localeCompare(b.room_number))
@@ -139,21 +140,21 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
                         onValueChange={(value) => handleStatusChange(room.id, value)}
                         disabled={updating === room.id}
                       >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="available">Available</SelectItem>
-                          <SelectItem value="occupied">Occupied</SelectItem>
-                          <SelectItem value="dirty">Dirty</SelectItem>
-                          <SelectItem value="cleaning">Cleaning</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="out_of_order">Out of Order</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </Card>
-                ))}
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="available">{formatRoomStatus("available")}</SelectItem>
+                        <SelectItem value="occupied">{formatRoomStatus("occupied")}</SelectItem>
+                        <SelectItem value="dirty">{formatRoomStatus("dirty")}</SelectItem>
+                        <SelectItem value="cleaning">{formatRoomStatus("cleaning")}</SelectItem>
+                        <SelectItem value="maintenance">{formatRoomStatus("maintenance")}</SelectItem>
+                        <SelectItem value="out_of_order">{formatRoomStatus("out_of_order")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         ))}

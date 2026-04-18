@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
+import { formatReservationStatus, pluralGuests } from "@/lib/localization"
 import {
   Search,
   Plus,
@@ -77,6 +78,18 @@ const loyaltyColors: Record<string, string> = {
   platinum: "bg-indigo-100 text-indigo-800 border-indigo-300",
 }
 
+const loyaltyTierLabels: Record<string, string> = {
+  bronze: "Бронза",
+  silver: "Срібло",
+  gold: "Золото",
+  platinum: "Платина",
+}
+
+function formatLoyaltyTier(tier?: string | null) {
+  if (!tier) return ""
+  return loyaltyTierLabels[tier] ?? tier
+}
+
 async function fetchGuests() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -101,7 +114,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
   const [loyaltyFilter, setLoyaltyFilter] = useState("all")
   const [saving, setSaving] = useState(false)
 
-  // New / Edit guest dialog
+  // Діалог: додати / редагувати гостя
   const [editOpen, setEditOpen] = useState(false)
   const [editGuest, setEditGuest] = useState<Guest | null>(null)
   const [form, setForm] = useState({
@@ -124,7 +137,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
     is_vip: false,
   })
 
-  // View guest dialog
+  // Діалог: перегляд гостя
   const [viewOpen, setViewOpen] = useState(false)
   const [viewGuest, setViewGuest] = useState<Guest | null>(null)
   const [guestReservations, setGuestReservations] = useState<GuestReservation[]>([])
@@ -246,9 +259,9 @@ export function GuestsClient({ profile }: { profile: Profile }) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-balance">Guest Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-balance">Керування гостями</h1>
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium">{totalGuests}</span> total guests
+            <span className="font-medium">{totalGuests}</span> усього гостей
             {vipCount > 0 && (
               <>
                 <span className="mx-1.5 text-border">|</span>
@@ -260,12 +273,12 @@ export function GuestsClient({ profile }: { profile: Profile }) {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
+            Оновити
           </Button>
           {canManage && (
             <Button size="sm" onClick={openNewGuest}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Guest
+              Додати гостя
             </Button>
           )}
         </div>
@@ -280,7 +293,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalGuests}</p>
-              <p className="text-xs font-medium text-muted-foreground">Total Guests</p>
+              <p className="text-xs font-medium text-muted-foreground">Усього гостей</p>
             </div>
           </CardContent>
         </Card>
@@ -291,7 +304,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-amber-700">{vipCount}</p>
-              <p className="text-xs font-medium text-amber-600">VIP Guests</p>
+              <p className="text-xs font-medium text-amber-600">VIP гості</p>
             </div>
           </CardContent>
         </Card>
@@ -304,7 +317,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <p className="text-2xl font-bold text-emerald-700">
                 {new Set(allGuests.map((g) => g.country).filter(Boolean)).size}
               </p>
-              <p className="text-xs font-medium text-emerald-600">Countries</p>
+              <p className="text-xs font-medium text-emerald-600">Країни</p>
             </div>
           </CardContent>
         </Card>
@@ -317,7 +330,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <p className="text-2xl font-bold text-blue-700">
                 {new Set(allGuests.map((g) => g.company).filter(Boolean)).size}
               </p>
-              <p className="text-xs font-medium text-blue-600">Companies</p>
+              <p className="text-xs font-medium text-blue-600">Компанії</p>
             </div>
           </CardContent>
         </Card>
@@ -328,7 +341,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, phone, passport, company..."
+            placeholder="Пошук за ПІБ, email, телефоном, паспортом, компанією..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -339,9 +352,9 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Guests</SelectItem>
-            <SelectItem value="vip">VIP Only</SelectItem>
-            <SelectItem value="regular">Regular</SelectItem>
+            <SelectItem value="all">Усі гості</SelectItem>
+            <SelectItem value="vip">Тільки VIP</SelectItem>
+            <SelectItem value="regular">Звичайні</SelectItem>
           </SelectContent>
         </Select>
         <Select value={loyaltyFilter} onValueChange={setLoyaltyFilter}>
@@ -349,11 +362,11 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="platinum">Platinum</SelectItem>
-            <SelectItem value="gold">Gold</SelectItem>
-            <SelectItem value="silver">Silver</SelectItem>
-            <SelectItem value="bronze">Bronze</SelectItem>
+            <SelectItem value="all">Усі рівні</SelectItem>
+            <SelectItem value="platinum">Платина</SelectItem>
+            <SelectItem value="gold">Золото</SelectItem>
+            <SelectItem value="silver">Срібло</SelectItem>
+            <SelectItem value="bronze">Бронза</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -363,8 +376,8 @@ export function GuestsClient({ profile }: { profile: Profile }) {
         {filteredGuests.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Users className="mb-3 h-10 w-10" />
-            <p>No guests found</p>
-            {search && <p className="text-xs">Try adjusting your search filters</p>}
+            <p>Гостей не знайдено</p>
+            {search && <p className="text-xs">Спробуйте змінити фільтри пошуку</p>}
           </div>
         )}
         {filteredGuests.map((guest) => (
@@ -392,7 +405,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                     )}
                     {guest.loyalty_tier && (
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${loyaltyColors[guest.loyalty_tier] || ""}`}>
-                        {guest.loyalty_tier}
+                        {formatLoyaltyTier(guest.loyalty_tier)}
                       </Badge>
                     )}
                   </div>
@@ -423,12 +436,12 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <div className="flex shrink-0 gap-1.5">
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openViewGuest(guest)}>
                   <Eye className="h-4 w-4" />
-                  <span className="sr-only">View guest</span>
+                  <span className="sr-only">Переглянути гостя</span>
                 </Button>
                 {canManage && (
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditGuest(guest)}>
                     <Edit2 className="h-4 w-4" />
-                    <span className="sr-only">Edit guest</span>
+                    <span className="sr-only">Редагувати гостя</span>
                   </Button>
                 )}
               </div>
@@ -441,45 +454,45 @@ export function GuestsClient({ profile }: { profile: Profile }) {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editGuest ? "Edit Guest" : "Add New Guest"}</DialogTitle>
+            <DialogTitle>{editGuest ? "Редагувати гостя" : "Додати гостя"}</DialogTitle>
             <DialogDescription>
-              {editGuest ? "Update guest information." : "Enter the guest details below."}
+              {editGuest ? "Оновіть інформацію про гостя." : "Вкажіть дані гостя нижче."}
             </DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="personal" className="w-full">
             <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="personal">Personal</TabsTrigger>
-              <TabsTrigger value="contact">Contact & Address</TabsTrigger>
-              <TabsTrigger value="hotel">Hotel Info</TabsTrigger>
+              <TabsTrigger value="personal">Особисте</TabsTrigger>
+              <TabsTrigger value="contact">Контакти та адреса</TabsTrigger>
+              <TabsTrigger value="hotel">Інформація для готелю</TabsTrigger>
             </TabsList>
             <TabsContent value="personal" className="flex flex-col gap-4 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>First Name *</Label>
-                  <Input value={form.first_name} onChange={(e) => updateField("first_name", e.target.value)} placeholder="John" />
+                  <Label>Ім&apos;я *</Label>
+                  <Input value={form.first_name} onChange={(e) => updateField("first_name", e.target.value)} placeholder="Іван" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Last Name *</Label>
-                  <Input value={form.last_name} onChange={(e) => updateField("last_name", e.target.value)} placeholder="Smith" />
+                  <Label>Прізвище *</Label>
+                  <Input value={form.last_name} onChange={(e) => updateField("last_name", e.target.value)} placeholder="Петренко" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Date of Birth</Label>
+                  <Label>Дата народження</Label>
                   <Input type="date" value={form.date_of_birth} onChange={(e) => updateField("date_of_birth", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Nationality</Label>
-                  <Input value={form.nationality} onChange={(e) => updateField("nationality", e.target.value)} placeholder="e.g. American" />
+                  <Label>Громадянство</Label>
+                  <Input value={form.nationality} onChange={(e) => updateField("nationality", e.target.value)} placeholder="напр. Україна" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Passport Number</Label>
+                  <Label>Номер паспорта</Label>
                   <Input value={form.passport_number} onChange={(e) => updateField("passport_number", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>ID Number</Label>
+                  <Label>ID / ІПН</Label>
                   <Input value={form.id_number} onChange={(e) => updateField("id_number", e.target.value)} />
                 </div>
               </div>
@@ -487,83 +500,88 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             <TabsContent value="contact" className="flex flex-col gap-4 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="john@example.com" />
+                  <Label>Ел. пошта</Label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => updateField("email", e.target.value)}
+                    placeholder="ivan@example.com"
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+1 555 123 4567" />
+                  <Label>Телефон</Label>
+                  <Input value={form.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+380..." />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Address</Label>
-                <Input value={form.address} onChange={(e) => updateField("address", e.target.value)} placeholder="123 Main St" />
+                <Label>Адреса</Label>
+                <Input value={form.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Вулиця, будинок, кв." />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>City</Label>
+                  <Label>Місто</Label>
                   <Input value={form.city} onChange={(e) => updateField("city", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Country</Label>
+                  <Label>Країна</Label>
                   <Input value={form.country} onChange={(e) => updateField("country", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Postal Code</Label>
+                  <Label>Поштовий індекс</Label>
                   <Input value={form.postal_code} onChange={(e) => updateField("postal_code", e.target.value)} />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Company</Label>
-                <Input value={form.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Company name" />
+                <Label>Компанія</Label>
+                <Input value={form.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Назва компанії" />
               </div>
             </TabsContent>
             <TabsContent value="hotel" className="flex flex-col gap-4 pt-4">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
-                  <Label className="text-base font-medium">VIP Guest</Label>
-                  <p className="text-sm text-muted-foreground">Mark this guest as a VIP for special treatment</p>
+                  <Label className="text-base font-medium">VIP гість</Label>
+                  <p className="text-sm text-muted-foreground">Позначте гостя як VIP для особливого обслуговування</p>
                 </div>
                 <Switch checked={form.is_vip} onCheckedChange={(v) => updateField("is_vip", v)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Loyalty Tier</Label>
+                <Label>Рівень лояльності</Label>
                 <Select value={form.loyalty_tier || "none"} onValueChange={(v) => updateField("loyalty_tier", v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="No tier" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Без рівня" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Tier</SelectItem>
-                    <SelectItem value="bronze">Bronze</SelectItem>
-                    <SelectItem value="silver">Silver</SelectItem>
-                    <SelectItem value="gold">Gold</SelectItem>
-                    <SelectItem value="platinum">Platinum</SelectItem>
+                    <SelectItem value="none">Без рівня</SelectItem>
+                    <SelectItem value="bronze">Бронза</SelectItem>
+                    <SelectItem value="silver">Срібло</SelectItem>
+                    <SelectItem value="gold">Золото</SelectItem>
+                    <SelectItem value="platinum">Платина</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Preferences</Label>
+                <Label>Вподобання</Label>
                 <Textarea
                   value={form.preferences}
                   onChange={(e) => updateField("preferences", e.target.value)}
-                  placeholder="Preferred room type, pillow preference, dietary restrictions..."
+                  placeholder="Бажаний тип номера, вподобання щодо подушки, дієтичні обмеження..."
                   rows={2}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Internal Notes</Label>
+                <Label>Внутрішні примітки</Label>
                 <Textarea
                   value={form.notes}
                   onChange={(e) => updateField("notes", e.target.value)}
-                  placeholder="Staff-only notes about the guest..."
+                  placeholder="Службові нотатки для персоналу щодо гостя..."
                   rows={2}
                 />
               </div>
             </TabsContent>
           </Tabs>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Скасувати</Button>
             <Button onClick={handleSave} disabled={!form.first_name.trim() || !form.last_name.trim() || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editGuest ? "Save Changes" : "Add Guest"}
+              {editGuest ? "Зберегти зміни" : "Додати гостя"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -619,7 +637,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                 {viewGuest.passport_number && (
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
-                    <span>Passport: {viewGuest.passport_number}</span>
+                    <span>Паспорт: {viewGuest.passport_number}</span>
                   </div>
                 )}
               </div>
@@ -642,7 +660,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                   <div className="flex items-center gap-2">
                     <Crown className="h-4 w-4 text-amber-600" />
                     <Badge variant="outline" className={`capitalize ${loyaltyColors[viewGuest.loyalty_tier] || ""}`}>
-                      {viewGuest.loyalty_tier} Member
+                      {formatLoyaltyTier(viewGuest.loyalty_tier)}
                     </Badge>
                   </div>
                 </>
@@ -652,7 +670,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                 <>
                   <Separator />
                   <div>
-                    <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Preferences</p>
+                    <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Вподобання</p>
                     <p className="text-sm">{viewGuest.preferences}</p>
                   </div>
                 </>
@@ -660,7 +678,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
 
               {viewGuest.notes && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Staff Notes</p>
+                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Службові примітки</p>
                   <p className="text-sm text-muted-foreground italic">{viewGuest.notes}</p>
                 </div>
               )}
@@ -669,14 +687,14 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold">Reservation History</p>
+                  <p className="text-sm font-semibold">Історія бронювань</p>
                 </div>
                 {loadingReservations ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : guestReservations.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No reservations found</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">Бронювань не знайдено</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {guestReservations.map((res) => (
@@ -687,13 +705,12 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                             {new Date(res.check_in_date).toLocaleDateString()} - {new Date(res.check_out_date).toLocaleDateString()}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {res.adults} adult{res.adults !== 1 ? "s" : ""}
-                            {res.children > 0 && `, ${res.children} child${res.children !== 1 ? "ren" : ""}`}
+                            {pluralGuests(res.adults, res.children)}
                           </p>
                         </div>
                         <div className="text-right">
                           <Badge variant={res.status === "checked_out" ? "default" : res.status === "checked_in" ? "secondary" : "outline"} className="text-[10px]">
-                            {res.status.replace(/_/g, " ")}
+                            {formatReservationStatus(res.status)}
                           </Badge>
                           <p className="mt-0.5 font-semibold">${res.total_amount.toFixed(2)}</p>
                         </div>

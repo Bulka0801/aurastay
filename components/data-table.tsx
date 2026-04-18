@@ -87,7 +87,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                Нічого не знайдено.
                 </TableCell>
               </TableRow>
             )}
@@ -97,11 +97,11 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center justify-end space-x-2">
         <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          Попередня
         </Button>
         <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-          Next
-          <ChevronRight className="h-4 w-4" />
+        Наступна
+        <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

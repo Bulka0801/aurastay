@@ -1,17 +1,17 @@
 export type UserRole =
-  | "system_admin"
-  | "general_manager"
-  | "front_desk_manager"
-  | "front_desk_agent"
-  | "reservations_manager"
-  | "housekeeping_supervisor"
-  | "housekeeping_staff"
-  | "revenue_manager"
-  | "sales_manager"
-  | "accountant"
+  | "system_admin" //+
+  | "general_manager" // Big boss
+  | "front_desk_manager" //+
+  | "front_desk_agent" //+
+  | "reservations_manager" //i have a question about this role, is it necessary?
+  | "housekeeping_supervisor" //+
+  | "housekeeping_staff" //+
+  | "revenue_manager" //idk what is it
+  | "sales_manager" //bullshit role for sales access, not actual sales manager
+  | "accountant" //bullshit role for finance access, not actual accountant
   | "maintenance_manager"
-  | "maintenance_staff"
-  | "fb_manager"
+  | "maintenance_staff" // too much for maintenance staff
+  | "fb_manager" //bullshit
 
 export type RoomStatus = "available" | "occupied" | "dirty" | "cleaning" | "inspected" | "maintenance" | "blocked"
 

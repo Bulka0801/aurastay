@@ -47,44 +47,44 @@ export default async function ReservationsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Reservations</h1>
-          <p className="text-slate-600">Manage all hotel reservations and bookings</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Бронювання</h1>
+          <p className="text-slate-600">Управління всіма бронюваннями готелю</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/reservations/new">
             <Plus className="mr-2 h-4 w-4" />
-            New Reservation
+            Нове бронювання
           </Link>
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          title="Active Reservations"
+          title="Активні бронювання"
           value={totalReservations || 0}
           icon={Calendar}
           iconColor="text-blue-600"
-          description="Confirmed and checked-in"
+          description="Підтверджені та заселені"
         />
         <StatCard
-          title="Today's Arrivals"
+          title="Заїзди сьогодні"
           value={todayArrivals || 0}
           icon={Users}
           iconColor="text-green-600"
-          description="Expected check-ins"
+          description="Очікувані заселення"
         />
         <StatCard
-          title="Total Revenue"
+          title="Загальний дохід"
           value={`$${totalRevenue.toFixed(2)}`}
           icon={DollarSign}
           iconColor="text-emerald-600"
-          description="From active reservations"
+          description="Від активних бронювань"
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Reservations</CardTitle>
+          <CardTitle>Всі бронювання</CardTitle>
         </CardHeader>
         <CardContent>
           <ReservationsTable reservations={reservations || []} />

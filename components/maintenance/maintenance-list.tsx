@@ -8,6 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Wrench, CheckCircle } from "lucide-react"
+import { formatMaintenanceStatus, formatPriority } from "@/lib/localization"
+
+function formatLegacyRequestStatus(status: string) {
+  if (status === "reported") return "Зареєстровано"
+  if (status === "in_progress") return formatMaintenanceStatus("in_progress")
+  if (status === "resolved") return "Усунено"
+  return status
+}
+
+function formatIssueType(type: string) {
+  // legacy field; best-effort humanization
+  return type.replace(/_/g, " ")
+}
 
 interface MaintenanceRequest {
   id: string
@@ -84,26 +97,26 @@ export function MaintenanceList({ requests }: { requests: MaintenanceRequest[] }
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>
-          All ({requests.length})
+          Усі ({requests.length})
         </Button>
         <Button variant={filter === "reported" ? "default" : "outline"} size="sm" onClick={() => setFilter("reported")}>
-          Reported ({requests.filter((r) => r.status === "reported").length})
+          Зареєстровано ({requests.filter((r) => r.status === "reported").length})
         </Button>
         <Button
           variant={filter === "in_progress" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("in_progress")}
         >
-          In Progress ({requests.filter((r) => r.status === "in_progress").length})
+          У процесі ({requests.filter((r) => r.status === "in_progress").length})
         </Button>
         <Button variant={filter === "resolved" ? "default" : "outline"} size="sm" onClick={() => setFilter("resolved")}>
-          Resolved ({requests.filter((r) => r.status === "resolved").length})
+          Усунено ({requests.filter((r) => r.status === "resolved").length})
         </Button>
       </div>
 
       {filteredRequests.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No maintenance requests found</p>
+          <p className="text-muted-foreground">Технічних заявок не знайдено</p>
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -116,29 +129,29 @@ export function MaintenanceList({ requests }: { requests: MaintenanceRequest[] }
                     <StatusIcon className="h-5 w-5 mt-1 text-muted-foreground" />
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">Room {request.rooms.room_number}</span>
+                        <span className="font-semibold">Номер {request.rooms.room_number}</span>
                         <Badge variant="outline" className="text-xs">
                           {request.rooms.room_type.name}
                         </Badge>
                         <Badge className={priorityColors[request.priority as keyof typeof priorityColors]}>
-                          {request.priority}
+                          {formatPriority(request.priority)}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium capitalize">{request.issue_type.replace(/_/g, " ")}</p>
+                      <p className="text-sm font-medium capitalize">{formatIssueType(request.issue_type)}</p>
                       <p className="text-sm text-muted-foreground">{request.description}</p>
                       <div className="flex gap-4 text-xs text-muted-foreground">
                         <span>
-                          Reported by: {request.reported_by_profile.first_name} {request.reported_by_profile.last_name}
+                          Зареєстрував(ла): {request.reported_by_profile.first_name} {request.reported_by_profile.last_name}
                         </span>
                         {request.assigned_to_profile && (
                           <span>
-                            Assigned to: {request.assigned_to_profile.first_name}{" "}
+                            Виконавець: {request.assigned_to_profile.first_name}{" "}
                             {request.assigned_to_profile.last_name}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Created: {new Date(request.created_at).toLocaleString()}
+                        Створено: {new Date(request.created_at).toLocaleString("uk-UA")}
                       </p>
                     </div>
                   </div>
@@ -152,9 +165,9 @@ export function MaintenanceList({ requests }: { requests: MaintenanceRequest[] }
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="reported">Reported</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="reported">{formatLegacyRequestStatus("reported")}</SelectItem>
+                        <SelectItem value="in_progress">{formatLegacyRequestStatus("in_progress")}</SelectItem>
+                        <SelectItem value="resolved">{formatLegacyRequestStatus("resolved")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

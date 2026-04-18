@@ -41,8 +41,8 @@ export default async function CheckOutPage({ params }: { params: { id: string } 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Check-Out Guest</h1>
-        <p className="text-muted-foreground">Complete the check-out process</p>
+        <h1 className="text-3xl font-bold">Оформити виїзд гостя</h1>
+        <p className="text-muted-foreground">Завершити оформлення виїзду</p>
       </div>
 
       <CheckOutForm reservation={reservation} />

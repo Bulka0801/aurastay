@@ -22,13 +22,13 @@ export default async function UsersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">Manage system users and their roles</p>
+          <h1 className="text-3xl font-bold tracking-tight">Управління користувачами</h1>
+          <p className="text-muted-foreground">Керуйте користувачами системи та їхніми ролями</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/admin/users/new">
             <Plus className="mr-2 h-4 w-4" />
-            Add User
+            Додати нового користувача
           </Link>
         </Button>
       </div>
@@ -36,10 +36,10 @@ export default async function UsersPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>All Users</CardTitle>
+            <CardTitle>Усі користувачі</CardTitle>
             <div className="relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input type="search" placeholder="Search users..." className="pl-8" />
+              <Input type="search" placeholder="Пошук користувачів..." className="pl-8" />
             </div>
           </div>
         </CardHeader>
@@ -55,23 +55,23 @@ export default async function UsersPage() {
                       </p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       {user.employee_id && (
-                        <p className="text-xs text-muted-foreground">Employee ID: {user.employee_id}</p>
+                        <p className="text-xs text-muted-foreground">ID співробітника: {user.employee_id}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <Badge variant={user.is_active ? "default" : "secondary"}>{formatRole(user.role)}</Badge>
-                        {!user.is_active && <p className="mt-1 text-xs text-muted-foreground">Inactive</p>}
+                        {!user.is_active && <p className="mt-1 text-xs text-muted-foreground">Неактивний</p>}
                       </div>
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/admin/users/${user.id}`}>Edit</Link>
+                        <Link href={`/dashboard/admin/users/${user.id}`}>Редагувати</Link>
                       </Button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">No users found</p>
+              <p className="text-center text-muted-foreground py-8">Користувачів не знайдено</p>
             )}
           </div>
         </CardContent>

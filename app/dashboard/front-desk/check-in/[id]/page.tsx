@@ -45,8 +45,8 @@ export default async function CheckInPage({ params }: { params: { id: string } }
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Check-In Guest</h1>
-        <p className="text-muted-foreground">Complete the check-in process</p>
+        <h1 className="text-3xl font-bold">Оформити заїзд гостя</h1>
+        <p className="text-muted-foreground">Завершити оформлення заїзду</p>
       </div>
 
       <CheckInForm reservation={reservation} availableRooms={availableRooms} />

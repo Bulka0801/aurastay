@@ -48,11 +48,11 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
   const columns: ColumnDef<Reservation>[] = [
     {
       accessorKey: "reservation_number",
-      header: "Reservation #",
+      header: "№ бронювання",
     },
     {
       accessorKey: "guests",
-      header: "Guest",
+      header: "Гість",
       cell: ({ row }) => {
         const guest = row.original.guests
         return (
@@ -67,17 +67,17 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
     },
     {
       accessorKey: "check_in_date",
-      header: "Check-in",
+      header: "Заїзд",
       cell: ({ row }) => new Date(row.original.check_in_date).toLocaleDateString(),
     },
     {
       accessorKey: "check_out_date",
-      header: "Check-out",
+      header: "Виїзд",
       cell: ({ row }) => new Date(row.original.check_out_date).toLocaleDateString(),
     },
     {
       accessorKey: "reservation_rooms",
-      header: "Room",
+      header: "Номер",
       cell: ({ row }) => {
         const rooms = row.original.reservation_rooms
         return rooms?.[0]?.rooms?.room_number || "N/A"
@@ -85,7 +85,7 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: "Статус",
       cell: ({ row }) => {
         const status = row.original.status
         return (
@@ -97,7 +97,7 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
     },
     {
       accessorKey: "total_amount",
-      header: "Total",
+      header: "Сума",
       cell: ({ row }) => `$${Number(row.original.total_amount).toFixed(2)}`,
     },
     {
@@ -106,13 +106,13 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
         return (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
-              <Link href={`/dashboard/reservations/${row.original.id}`}>
-                <Eye className="h-4 w-4" />
+            <Link href={`/dashboard/reservations/${row.original.id}`} aria-label="Переглянути бронювання">
+            <Eye className="h-4 w-4" />
               </Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>
-              <Link href={`/dashboard/reservations/${row.original.id}/edit`}>
-                <Edit className="h-4 w-4" />
+            <Link href={`/dashboard/reservations/${row.original.id}/edit`} aria-label="Редагувати бронювання">
+            <Edit className="h-4 w-4" />
               </Link>
             </Button>
           </div>
@@ -126,7 +126,7 @@ export function ReservationsTable({ reservations }: { reservations: Reservation[
       columns={columns}
       data={reservations}
       searchKey="reservation_number"
-      searchPlaceholder="Search by reservation number..."
+      searchPlaceholder="Пошук за номером бронювання..."
     />
   )
 }

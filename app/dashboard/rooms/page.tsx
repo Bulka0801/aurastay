@@ -41,12 +41,12 @@ export default async function RoomsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Room Management</h1>
-          <p className="text-muted-foreground">Manage room inventory and configurations</p>
+          <h1 className="text-3xl font-bold">Управління номерним фондом</h1>
+          <p className="text-muted-foreground">Управління номерами та їх налаштуваннями</p>
         </div>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
-          Add Room
+          Додати новий номер
         </Button> 
       </div>
 
@@ -66,7 +66,7 @@ export default async function RoomsPage() {
                   <p className="text-sm">
                     {availableCount} / {typeRooms.length} available
                   </p>
-                  <p className="text-xs text-muted-foreground">Max {type.max_occupancy} guests</p>
+                  <p className="text-xs text-muted-foreground">Вміщує до {type.max_occupancy} гостей</p>
                 </div>
               </div>
             </Card>
@@ -76,14 +76,14 @@ export default async function RoomsPage() {
 
       <Card>
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">All Rooms</h2>
+          <h2 className="text-xl font-semibold mb-4">Усі номери</h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {rooms?.map((room) => (
               <div key={room.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <div className="font-semibold">{room.room_number}</div>
                   <div className="text-sm text-muted-foreground">{room.room_type.name}</div>
-                  <div className="text-xs text-muted-foreground">Floor {room.floor}</div>
+                  <div className="text-xs text-muted-foreground">Поверх {room.floor}</div>
                 </div>
                 <Badge className={statusColors[room.status as keyof typeof statusColors]}>{room.status}</Badge>
               </div>
