@@ -72,6 +72,64 @@ export const maintenancePriorityLabels: Record<string, string> = {
   urgent: "Терміновий",
 }
 
+export const housekeepingTaskStatusLabels: Record<string, string> = {
+  planned: "Заплановано",
+  pending: "Очікує",
+  assigned: "Призначено",
+  in_progress: "У процесі",
+  paused: "На паузі",
+  on_hold: "Призупинено",
+  completed: "Виконано",
+  cancelled: "Скасовано",
+}
+
+export const inspectionStatusLabels: Record<string, string> = {
+  in_progress: "Триває інспекція",
+  passed: "Пройдено",
+  failed: "Не пройдено",
+}
+
+export const inspectionResultLabels: Record<string, string> = {
+  passed: "Прийнято",
+  failed: "Відхилено",
+  re_clean: "Повторне прибирання",
+  maintenance_required: "Потрібен ремонт",
+}
+
+export const inspectionCategoryLabels: Record<string, string> = {
+  bathroom: "Ванна кімната",
+  bedroom: "Спальня",
+  amenities: "Засоби та аксесуари",
+  electronics: "Техніка",
+  overall: "Загальний стан",
+}
+
+export const guestStatusLabels: Record<string, string> = {
+  occupied: "Зайнятий гостем",
+  vacant: "Вільний",
+  unknown: "Не визначено",
+}
+
+export function formatTaskStatus(status?: string | null) {
+  if (!status) return "—"
+  return housekeepingTaskStatusLabels[status] ?? status
+}
+
+export function formatInspectionStatus(status?: string | null) {
+  if (!status) return "—"
+  return inspectionStatusLabels[status] ?? status
+}
+
+export function formatInspectionResult(result?: string | null) {
+  if (!result) return "—"
+  return inspectionResultLabels[result] ?? result
+}
+
+export function formatInspectionCategory(cat?: string | null) {
+  if (!cat) return "—"
+  return inspectionCategoryLabels[cat] ?? cat
+}
+
 export const housekeepingTaskTypeLabels: Record<string, string> = {
   checkout_cleaning: "Прибирання після виїзду",
   stayover_cleaning: "Поточне прибирання",
