@@ -482,30 +482,20 @@ EXECUTE FUNCTION public.validate_room_block_period();
 
 
 -- ===========================================================================
--- 9. Перерахунок paid_amount і balance у reservations
+-- 9. Перерахунок paid_amount у reservations
 -- ===========================================================================
 
--- Попередня версія тільки додавала NEW.amount до paid_amount після INSERT.
--- Це було ризиковано, бо:
--- - UPDATE платежу не перераховував бронювання;
--- - DELETE платежу не перераховував бронювання;
--- - refund/failed не враховувалися коректно;
--- - balance залишався старим.
---
--- Нова логіка не додає суму інкрементально.
--- Вона кожного разу перераховує paid_amount з таблиці payments.
+-- ВАЖЛИВО:
+-- У поточній схемі AuraStay колонка reservations.balance є generated column.
+-- Її не можна оновлювати вручну через UPDATE.
+-- Тому функція оновлює тільки paid_amount та updated_at.
+-- balance автоматично перераховується самою базою даних.
 CREATE OR REPLACE FUNCTION public.recalculate_reservation_payment_totals(target_reservation_id UUID)
 RETURNS VOID AS $$
 BEGIN
   UPDATE public.reservations r
   SET
     paid_amount = COALESCE((
-      SELECT SUM(p.amount)
-      FROM public.payments p
-      WHERE p.reservation_id = target_reservation_id
-        AND p.payment_status = 'paid'
-    ), 0),
-    balance = r.total_amount - COALESCE((
       SELECT SUM(p.amount)
       FROM public.payments p
       WHERE p.reservation_id = target_reservation_id
@@ -599,17 +589,33 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Вона записує:
 -- - хто виконав дію;
 -- - яку дію виконав;
--- - яку сутність змінив;
--- - id сутності;
+-- - яку таблицю змінив;
+-- - id сутності, якщо він має UUID-формат;
 -- - старі та нові значення.
+--
+-- ВАЖЛИВО:
+-- audit_logs.entity_id має тип UUID.
+-- room_blocks.id є UUID, тому його можна записати в entity_id.
+-- hotel_settings.id є INT, тому для hotel_settings entity_id записується як NULL,
+-- а сам id = 1 зберігається всередині JSON у changes.
 CREATE OR REPLACE FUNCTION public.audit_critical_changes()
 RETURNS TRIGGER AS $$
 DECLARE
   entity_uuid UUID;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    entity_uuid := NEW.id;
+  -- Для room_blocks id є UUID.
+  -- Для hotel_settings id є INT, тому entity_id залишаємо NULL.
+  IF TG_TABLE_NAME = 'room_blocks' THEN
+    IF TG_OP = 'DELETE' THEN
+      entity_uuid := OLD.id;
+    ELSE
+      entity_uuid := NEW.id;
+    END IF;
+  ELSE
+    entity_uuid := NULL;
+  END IF;
 
+  IF TG_OP = 'INSERT' THEN
     INSERT INTO public.audit_logs (
       user_id,
       action,
@@ -633,8 +639,6 @@ BEGIN
   END IF;
 
   IF TG_OP = 'UPDATE' THEN
-    entity_uuid := NEW.id;
-
     INSERT INTO public.audit_logs (
       user_id,
       action,
@@ -659,8 +663,6 @@ BEGIN
   END IF;
 
   IF TG_OP = 'DELETE' THEN
-    entity_uuid := OLD.id;
-
     INSERT INTO public.audit_logs (
       user_id,
       action,
