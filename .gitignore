@@ -10,6 +10,9 @@
 # local tooling and database dumps
 /.qodo/
 /backups/
+*.dump
+*.backup
+/supabase/.temp/
 
 # next.js
 /.next/
