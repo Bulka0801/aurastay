@@ -1,8 +1,9 @@
 "use client"
 
-import { Bell, Search, Menu, User, LogOut, Hotel } from "lucide-react"
+import { Search, User, LogOut, Hotel } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +12,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { formatRole } from "@/lib/localization"
 
 interface DashboardHeaderProps {
   user: {
@@ -37,22 +38,14 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
     router.refresh()
   }
 
-  const formatRole = (role: string) => {
-    return role
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-4 md:px-6">
-      <Button variant="ghost" size="icon" className="md:hidden">
-        <Menu className="h-5 w-5" />
-      </Button>
+      <SidebarTrigger className="size-9" />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
         <Hotel className="h-6 w-6 text-slate-700" />
-        <span className="hidden font-semibold text-slate-900 md:inline-block">AuraStay</span>
+        <span className="font-semibold text-slate-900">AuraStay</span>
       </div>
 
       <div className="flex-1">
@@ -60,16 +53,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
           <Input
             type="search"
-            placeholder="Search guests, reservations, rooms..."
+            placeholder="Пошук гостей, бронювань, номерів..."
             className="w-full bg-slate-50 pl-8"
           />
         </div>
       </div>
-
-      <Button variant="ghost" size="icon" className="relative">
-        <Bell className="h-5 w-5" />
-        <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">3</Badge>
-      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -95,14 +83,14 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
             <User className="mr-2 h-4 w-4" />
-            Profile Settings
+            Налаштування профілю
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
             <LogOut className="mr-2 h-4 w-4" />
-            {isLoggingOut ? "Logging out..." : "Logout"}
+            {isLoggingOut ? "Вихід..." : "Вийти"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

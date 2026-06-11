@@ -5,8 +5,20 @@ import { ArrivalsTab } from "@/components/front-desk/arrivals-tab"
 import { DeparturesTab } from "@/components/front-desk/departures-tab"
 import { InHouseTab } from "@/components/front-desk/in-house-tab"
 
-export default async function FrontDeskPage() {
+type FrontDeskPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>
+}
+
+function getSearchValue(searchParams: Record<string, string | string[] | undefined>, key: string) {
+  const value = searchParams[key]
+  return Array.isArray(value) ? value[0] : value
+}
+
+export default async function FrontDeskPage({ searchParams }: FrontDeskPageProps) {
   const supabase = await createServerClient()
+  const resolvedSearchParams = await Promise.resolve(searchParams ?? {})
+  const tab = getSearchValue(resolvedSearchParams, "tab")
+  const defaultTab = tab === "departures" || tab === "inhouse" ? tab : "arrivals"
 
   const {
     data: { user },
@@ -26,7 +38,7 @@ export default async function FrontDeskPage() {
       *,
       guests (*),
       reservation_rooms (
-        rooms (
+        rooms!reservation_rooms_room_id_fkey (
           room_number,
           room_type:room_types (name)
         )
@@ -42,7 +54,7 @@ export default async function FrontDeskPage() {
       *,
       guests (*),
       reservation_rooms (
-        rooms (
+        rooms!reservation_rooms_room_id_fkey (
           room_number,
           room_type:room_types (name)
         )
@@ -58,7 +70,7 @@ export default async function FrontDeskPage() {
       *,
       guests (*),
       reservation_rooms (
-        rooms (
+        rooms!reservation_rooms_room_id_fkey (
           room_number,
           room_type:room_types (name)
         )
@@ -71,20 +83,20 @@ export default async function FrontDeskPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Front Desk</h1>
-        <p className="text-muted-foreground">Manage check-ins, check-outs, and in-house guests</p>
+        <h1 className="text-3xl font-bold">Рецепція</h1>
+        <p className="text-muted-foreground">Керуйте заселеннями, виселеннями та гостями, що проживають</p>
       </div>
 
-      <Tabs defaultValue="arrivals" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="arrivals">
-            Arrivals <span className="ml-2 text-xs">({arrivals?.length || 0})</span>
+            Заїзди <span className="ml-2 text-xs">({arrivals?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="departures">
-            Departures <span className="ml-2 text-xs">({departures?.length || 0})</span>
+            Виїзди <span className="ml-2 text-xs">({departures?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="inhouse">
-            In-House <span className="ml-2 text-xs">({inHouse?.length || 0})</span>
+            Проживають <span className="ml-2 text-xs">({inHouse?.length || 0})</span>
           </TabsTrigger>
         </TabsList>
 

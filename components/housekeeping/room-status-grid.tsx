@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { formatRoomHousekeepingStatus } from "@/lib/localization"
+import type { RoomHousekeepingStatus } from "@/lib/types"
 
 interface Room {
   id: string
   room_number: string
   floor: number
   status: string
+  housekeeping_status: RoomHousekeepingStatus
   room_type: {
     name: string
     code: string
@@ -21,12 +24,11 @@ interface Room {
 }
 
 const statusColors = {
-  available: "bg-green-100 text-green-800 border-green-200",
-  occupied: "bg-blue-100 text-blue-800 border-blue-200",
+  clean: "bg-sky-100 text-sky-800 border-sky-200",
   dirty: "bg-red-100 text-red-800 border-red-200",
   cleaning: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  maintenance: "bg-orange-100 text-orange-800 border-orange-200",
-  out_of_order: "bg-gray-100 text-gray-800 border-gray-200",
+  inspecting: "bg-violet-100 text-violet-800 border-violet-200",
+  inspected: "bg-emerald-100 text-emerald-800 border-emerald-200",
 }
 
 export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
@@ -34,7 +36,9 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
   const [filter, setFilter] = useState("all")
   const [updating, setUpdating] = useState<string | null>(null)
 
-  const filteredRooms = rooms.filter((room) => filter === "all" || room.status === filter)
+  const filteredRooms = rooms.filter(
+    (room) => filter === "all" || room.housekeeping_status === filter,
+  )
 
   // Group rooms by floor
   const roomsByFloor = filteredRooms.reduce(
@@ -46,12 +50,15 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
     {} as Record<number, Room[]>,
   )
 
-  const handleStatusChange = async (roomId: string, newStatus: string) => {
+  const handleStatusChange = async (roomId: string, newStatus: RoomHousekeepingStatus) => {
     setUpdating(roomId)
     const supabase = createClient()
 
     try {
-      await supabase.from("rooms").update({ status: newStatus }).eq("id", roomId)
+      await supabase
+        .from("rooms")
+        .update({ housekeeping_status: newStatus })
+        .eq("id", roomId)
 
       router.refresh()
     } catch (error) {
@@ -62,12 +69,20 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
   }
 
   const statusCounts = {
-    available: rooms.filter((r) => r.status === "available").length,
-    occupied: rooms.filter((r) => r.status === "occupied").length,
-    dirty: rooms.filter((r) => r.status === "dirty").length,
-    cleaning: rooms.filter((r) => r.status === "cleaning").length,
-    maintenance: rooms.filter((r) => r.status === "maintenance").length,
-    out_of_order: rooms.filter((r) => r.status === "out_of_order").length,
+    clean: rooms.filter((r) => r.housekeeping_status === "clean").length,
+    dirty: rooms.filter((r) => r.housekeeping_status === "dirty").length,
+    cleaning: rooms.filter((r) => r.housekeeping_status === "cleaning").length,
+    inspecting: rooms.filter((r) => r.housekeeping_status === "inspecting").length,
+    inspected: rooms.filter((r) => r.housekeeping_status === "inspected").length,
+  }
+
+  const filterLabels: Record<string, string> = {
+    all: "Усі",
+    clean: "Чисті",
+    dirty: "Брудні",
+    cleaning: "Прибираються",
+    inspecting: "На перевірці",
+    inspected: "Перевірені",
   }
 
   return (
@@ -75,38 +90,27 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>
-            All ({rooms.length})
+            {filterLabels.all} ({rooms.length})
           </Button>
           <Button
-            variant={filter === "available" ? "default" : "outline"}
+            variant={filter === "clean" ? "default" : "outline"}
             size="sm"
-            onClick={() => setFilter("available")}
+            onClick={() => setFilter("clean")}
           >
-            Available ({statusCounts.available})
+            {filterLabels.clean} ({statusCounts.clean})
           </Button>
           <Button variant={filter === "dirty" ? "default" : "outline"} size="sm" onClick={() => setFilter("dirty")}>
-            Dirty ({statusCounts.dirty})
+            {filterLabels.dirty} ({statusCounts.dirty})
           </Button>
           <Button
             variant={filter === "cleaning" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("cleaning")}
           >
-            Cleaning ({statusCounts.cleaning})
+            {filterLabels.cleaning} ({statusCounts.cleaning})
           </Button>
-          <Button
-            variant={filter === "occupied" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("occupied")}
-          >
-            Occupied ({statusCounts.occupied})
-          </Button>
-          <Button
-            variant={filter === "maintenance" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("maintenance")}
-          >
-            Maintenance ({statusCounts.maintenance})
+          <Button variant={filter === "inspecting" ? "default" : "outline"} size="sm" onClick={() => setFilter("inspecting")}>
+            {filterLabels.inspecting} ({statusCounts.inspecting})
           </Button>
         </div>
       </div>
@@ -115,14 +119,14 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
         .sort(([a], [b]) => Number(b) - Number(a))
         .map(([floor, floorRooms]) => (
           <div key={floor} className="space-y-3">
-            <h3 className="text-lg font-semibold">Floor {floor}</h3>
+            <h3 className="text-lg font-semibold">Поверх {floor}</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {floorRooms
                 .sort((a, b) => a.room_number.localeCompare(b.room_number))
                 .map((room) => (
                   <Card
                     key={room.id}
-                    className={`p-4 border-2 ${statusColors[room.status as keyof typeof statusColors]}`}
+                    className={`p-4 border-2 ${statusColors[room.housekeeping_status]}`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -135,20 +139,23 @@ export function RoomStatusGrid({ rooms }: { rooms: Room[] }) {
                       </div>
                       <p className="text-xs text-muted-foreground">{room.room_type.name}</p>
                       <Select
-                        value={room.status}
-                        onValueChange={(value) => handleStatusChange(room.id, value)}
+                        value={room.housekeeping_status}
+                        onValueChange={(value) =>
+                          handleStatusChange(room.id, value as RoomHousekeepingStatus)
+                        }
                         disabled={updating === room.id}
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="available">Available</SelectItem>
-                          <SelectItem value="occupied">Occupied</SelectItem>
-                          <SelectItem value="dirty">Dirty</SelectItem>
-                          <SelectItem value="cleaning">Cleaning</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="out_of_order">Out of Order</SelectItem>
+                          {(["clean", "dirty", "cleaning", "inspecting", "inspected"] as const).map(
+                            (status) => (
+                              <SelectItem key={status} value={status}>
+                                {formatRoomHousekeepingStatus(status)}
+                              </SelectItem>
+                            ),
+                          )}
                         </SelectContent>
                       </Select>
                     </div>

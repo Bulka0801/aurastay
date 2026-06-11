@@ -5,9 +5,58 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PaymentsTable } from "@/components/finance/payments-table"
 import { FoliosTable } from "@/components/finance/folios-table"
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import { formatCurrency } from "@/lib/localization"
+import { signedSettledPaymentAmount } from "@/lib/rules/payments"
 
-export default async function FinancePage() {
+type FinancePayment = {
+  amount: number | string | null
+  payment_status?: string | null
+  payment_date?: string | null
+  created_at?: string | null
+}
+
+type FinanceReservation = {
+  total_amount: number | string | null
+  payments?: FinancePayment[] | null
+}
+
+type FinancePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>
+}
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function localMonthStartKey(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+
+  return `${year}-${month}-01`
+}
+
+function paymentDateKey(payment: FinancePayment) {
+  return (payment.payment_date ?? payment.created_at ?? "").slice(0, 10)
+}
+
+function signedPaymentAmount(payment: FinancePayment) {
+  return signedSettledPaymentAmount(payment)
+}
+
+function getSearchValue(searchParams: Record<string, string | string[] | undefined>, key: string) {
+  const value = searchParams[key]
+  return Array.isArray(value) ? value[0] : value
+}
+
+export default async function FinancePage({ searchParams }: FinancePageProps) {
   const supabase = await createServerClient()
+  const resolvedSearchParams = await Promise.resolve(searchParams ?? {})
+  const showAllFolios = getSearchValue(resolvedSearchParams, "folios") === "all"
+  const defaultTab = getSearchValue(resolvedSearchParams, "tab") === "folios" ? "folios" : "payments"
 
   const {
     data: { user },
@@ -22,23 +71,18 @@ export default async function FinancePage() {
     .from("payments")
     .select(`
       *,
-      folios (
-        reservation_id,
-        reservations (
-          reservation_number,
-          guests (
-            first_name,
-            last_name
-          )
+      reservations (
+        reservation_number,
+        guests (
+          first_name,
+          last_name
         )
       )
     `)
     .order("created_at", { ascending: false })
-    .limit(50)
 
-  // Fetch active folios
-  const { data: folios } = await supabase
-    .from("folios")
+  const foliosQuery = supabase
+    .from("v_folios_with_payments")
     .select(`
       *,
       guests (
@@ -51,35 +95,60 @@ export default async function FinancePage() {
         check_out_date
       )
     `)
-    .eq("status", "open")
+    .order("updated_at", { ascending: false })
 
-  // Calculate financial statistics
-  const today = new Date().toISOString().split("T")[0]
-  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
+  if (!showAllFolios) {
+    foliosQuery.eq("is_closed", false)
+  }
 
-  const { data: todayPayments } = await supabase
-    .from("payments")
-    .select("amount")
-    .eq("transaction_type", "payment")
-    .gte("created_at", today)
+  const { data: folios } = await foliosQuery
 
-  const { data: monthPayments } = await supabase
-    .from("payments")
-    .select("amount")
-    .eq("transaction_type", "payment")
-    .gte("created_at", startOfMonth)
+  const [{ count: totalFolioCount }, { count: openFolioCount }] = await Promise.all([
+    supabase.from("v_folios_with_payments").select("id", { count: "exact", head: true }),
+    supabase.from("v_folios_with_payments").select("id", { count: "exact", head: true }).eq("is_closed", false),
+  ])
 
-  const { data: pendingPayments } = await supabase.from("folios").select("balance").eq("status", "open")
+  const { data: activeReservations } = await supabase
+    .from("reservations")
+    .select(`
+      total_amount,
+      payments (
+        amount,
+        payment_status,
+        payment_date,
+        created_at
+      )
+    `)
+    .in("status", ["pending", "confirmed", "checked_in"])
 
-  const todayRevenue = todayPayments?.reduce((sum, p) => sum + p.amount, 0) || 0
-  const monthRevenue = monthPayments?.reduce((sum, p) => sum + p.amount, 0) || 0
-  const pendingAmount = pendingPayments?.reduce((sum, f) => sum + f.balance, 0) || 0
+  // Calculate financial statistics from the actual payments schema.
+  const today = localDateKey()
+  const startOfMonth = localMonthStartKey()
+  const financePayments = (payments ?? []) as FinancePayment[]
+
+  const todayRevenue = financePayments
+    .filter((payment) => paymentDateKey(payment) === today)
+    .reduce((sum, payment) => sum + signedPaymentAmount(payment), 0)
+
+  const monthRevenue = financePayments
+    .filter((payment) => paymentDateKey(payment) >= startOfMonth)
+    .reduce((sum, payment) => sum + signedPaymentAmount(payment), 0)
+
+  const pendingAmount =
+    ((activeReservations ?? []) as FinanceReservation[]).reduce((sum, reservation) => {
+      const total = Number(reservation.total_amount ?? 0)
+      const paid = (reservation.payments ?? []).reduce((paymentSum, payment) => {
+        return paymentSum + signedPaymentAmount(payment)
+      }, 0)
+
+      return sum + Math.max(0, (Number.isFinite(total) ? total : 0) - paid)
+    }, 0) || 0
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Finance</h1>
-        <p className="text-muted-foreground">Manage payments and financial records</p>
+        <h1 className="text-3xl font-bold">Фінанси</h1>
+        <p className="text-muted-foreground">Керуйте платежами та фінансовими записами</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -89,8 +158,8 @@ export default async function FinancePage() {
               <DollarSign className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Today's Revenue</p>
-              <p className="text-2xl font-bold">${todayRevenue.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Дохід за сьогодні</p>
+              <p className="text-2xl font-bold">{formatCurrency(todayRevenue)}</p>
             </div>
           </div>
         </Card>
@@ -101,8 +170,8 @@ export default async function FinancePage() {
               <TrendingUp className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Month Revenue</p>
-              <p className="text-2xl font-bold">${monthRevenue.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Дохід за місяць</p>
+              <p className="text-2xl font-bold">{formatCurrency(monthRevenue)}</p>
             </div>
           </div>
         </Card>
@@ -113,8 +182,8 @@ export default async function FinancePage() {
               <Wallet className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pending Amount</p>
-              <p className="text-2xl font-bold">${pendingAmount.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Сума до сплати</p>
+              <p className="text-2xl font-bold">{formatCurrency(pendingAmount)}</p>
             </div>
           </div>
         </Card>
@@ -125,29 +194,46 @@ export default async function FinancePage() {
               <TrendingDown className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Open Folios</p>
+              <p className="text-sm text-muted-foreground">Відкриті рахунки</p>
               <p className="text-2xl font-bold">{folios?.length || 0}</p>
             </div>
           </div>
         </Card>
       </div>
 
-      <Tabs defaultValue="payments" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
           <TabsTrigger value="payments">
-            Payments <span className="ml-2 text-xs">({payments?.length || 0})</span>
+            Платежі <span className="ml-2 text-xs">({payments?.length || 0})</span>
           </TabsTrigger>
           <TabsTrigger value="folios">
-            Open Folios <span className="ml-2 text-xs">({folios?.length || 0})</span>
+            Рахунки <span className="ml-2 text-xs">({showAllFolios ? totalFolioCount || 0 : openFolioCount || 0})</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="payments" className="mt-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Платежі</h2>
+            <p className="text-sm text-muted-foreground">
+              Окремі фінансові операції за бронюваннями: оплати, повернення та коригування.
+            </p>
+          </div>
           <PaymentsTable payments={payments || []} />
         </TabsContent>
 
         <TabsContent value="folios" className="mt-6">
-          <FoliosTable folios={folios || []} />
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Рахунки</h2>
+            <p className="text-sm text-muted-foreground">
+              Зведення по рахунку гостя: нарахування, внесені оплати та поточний баланс до закриття.
+            </p>
+          </div>
+          <FoliosTable
+            folios={folios || []}
+            showAll={showAllFolios}
+            totalCount={totalFolioCount || 0}
+            openCount={openFolioCount || 0}
+          />
         </TabsContent>
       </Tabs>
     </div>

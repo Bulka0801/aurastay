@@ -1,29 +1,67 @@
 export type UserRole =
-  | "system_admin"
+  | "system_administrator"
   | "general_manager"
   | "front_desk_manager"
-  | "front_desk_agent"
-  | "reservations_manager"
   | "housekeeping_supervisor"
   | "housekeeping_staff"
-  | "revenue_manager"
-  | "sales_manager"
-  | "accountant"
-  | "maintenance_manager"
   | "maintenance_staff"
-  | "fb_manager"
 
-export type RoomStatus = "available" | "occupied" | "dirty" | "cleaning" | "inspected" | "maintenance" | "blocked"
+export type RoomStatus =
+  | "available"
+  | "occupied"
+  | "dirty"
+  | "cleaning"
+  | "inspecting"
+  | "inspected"
+  | "maintenance"
+  | "out_of_order"
+  | "blocked"
+
+export type RoomOccupancyStatus = "vacant" | "occupied"
+
+export type RoomHousekeepingStatus =
+  | "clean"
+  | "dirty"
+  | "cleaning"
+  | "inspecting"
+  | "inspected"
+
+export type RoomOperationalStatus =
+  | "operational"
+  | "maintenance"
+  | "out_of_order"
+  | "blocked"
 
 export type ReservationStatus = "pending" | "confirmed" | "checked_in" | "checked_out" | "cancelled" | "no_show"
 
-export type PaymentStatus = "pending" | "partial" | "paid" | "refunded"
+export type PaymentStatus = "pending" | "partial" | "paid" | "refunded" | "failed"
 
-export type PaymentMethod = "cash" | "credit_card" | "debit_card" | "bank_transfer" | "corporate_billing"
+export type PaymentMethod = "cash" | "card_terminal" | "bank_transfer_iban"
 
-export type MaintenanceStatus = "pending" | "in_progress" | "completed" | "cancelled"
+export type PaymentTransactionType = "payment" | "refund"
+export type IncomingPaymentStatus = "pending" | "paid" | "failed"
+export type RefundStatus = "pending" | "refunded" | "failed"
+export type FolioFinancialState =
+  | "awaiting_payment"
+  | "partially_paid"
+  | "balanced"
+  | "overpaid"
+  | "awaiting_refund"
+  | "pending_transaction"
+export type FolioChargeStatus = "confirmed" | "voided"
+export type FolioChargeCategory = "accommodation" | "no_show_fee" | "cancellation_fee" | "adjustment"
 
-export type MaintenancePriority = "low" | "medium" | "high" | "urgent"
+export type HousekeepingTaskStatus = "pending" | "assigned" | "in_progress" | "completed" | "inspected"
+
+export type MaintenanceStatus = "pending" | "assigned" | "in_progress" | "completed" | "cancelled"
+
+export const ACTIVE_HOUSEKEEPING_STATUSES = ["pending", "assigned", "in_progress", "completed"] as const
+export const ARCHIVED_HOUSEKEEPING_STATUSES = ["inspected"] as const
+
+export const ACTIVE_MAINTENANCE_STATUSES = ["pending", "assigned", "in_progress"] as const
+export const ARCHIVED_MAINTENANCE_STATUSES = ["completed", "cancelled"] as const
+
+export type MaintenancePriority = "low" | "normal" | "high" | "urgent"
 
 export interface Profile {
   id: string
@@ -59,6 +97,9 @@ export interface Room {
   room_type?: RoomType
   floor: number
   status: RoomStatus
+  occupancy_status?: RoomOccupancyStatus
+  housekeeping_status?: RoomHousekeepingStatus
+  operational_status?: RoomOperationalStatus
   notes?: string
   is_active: boolean
   created_at: string
@@ -116,8 +157,32 @@ export interface Reservation {
   special_requests?: string
   notes?: string
   created_by?: string
+  cancelled_at?: string
+  cancelled_by?: string
+  cancellation_reason?: string
   created_at: string
   updated_at: string
+}
+
+export interface ReservationRoom {
+  id: string
+  reservation_id: string | null
+  reservation?: Reservation
+  room_id: string | null
+  room?: Room
+  room_type_id: string | null
+  room_type?: RoomType
+  rate: number
+  check_in_time: string | null
+  check_out_time: string | null
+  actual_check_in: string | null
+  actual_check_out: string | null
+  created_at: string | null
+  updated_at: string | null
+  start_date: string | null
+  end_date: string | null
+  moved_from_room_id: string | null
+  moved_from_room?: Room
 }
 
 export interface Folio {
@@ -132,6 +197,12 @@ export interface Folio {
   balance: number
   status: PaymentStatus
   is_closed: boolean
+  financial_state?: FolioFinancialState
+  total_charges?: number
+  total_payments?: number
+  total_refunds?: number
+  pending_payment_amount?: number
+  pending_refund_amount?: number
   created_at: string
   updated_at: string
 }
@@ -144,19 +215,33 @@ export interface FolioCharge {
   amount: number
   quantity: number
   charge_date: string
+  category: FolioChargeCategory
+  charge_status: FolioChargeStatus
+  voided_at?: string
+  voided_by?: string
+  void_reason?: string
   created_by?: string
   created_at: string
 }
 
 export interface Payment {
   id: string
+  reservation_id: string
   folio_id: string
   amount: number
   payment_method: PaymentMethod
+  payment_status: PaymentStatus
+  transaction_type: PaymentTransactionType
+  parent_payment_id?: string
   payment_date: string
-  reference_number?: string
+  transaction_id?: string
+  card_last_four?: string
   notes?: string
   processed_by?: string
+  status_changed_at?: string
+  status_changed_by?: string
+  failure_reason?: string
+  refund_method_override_reason?: string
   created_at: string
 }
 

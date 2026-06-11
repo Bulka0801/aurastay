@@ -21,7 +21,7 @@ export default async function MaintenancePage() {
   const { data: staff } = await supabase
     .from("profiles")
     .select("id, first_name, last_name, role")
-    .in("role", ["maintenance_manager", "maintenance_staff"])
+    .eq("role", "maintenance_staff")
     .eq("is_active", true)
 
   return (

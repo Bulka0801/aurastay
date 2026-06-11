@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { formatPriority, formatTaskType } from "@/lib/localization"
+import { shouldAutoCreateInspection } from "@/lib/rules/transitions"
 
 interface Task {
   id: string
@@ -32,7 +34,7 @@ interface Task {
 
 const priorityColors = {
   low: "bg-blue-100 text-blue-800",
-  medium: "bg-yellow-100 text-yellow-800",
+  normal: "bg-yellow-100 text-yellow-800",
   high: "bg-red-100 text-red-800",
 }
 
@@ -40,6 +42,13 @@ const statusIcons = {
   pending: Clock,
   in_progress: AlertCircle,
   completed: CheckCircle,
+}
+
+const statusLabels: Record<string, string> = {
+  all: "Усі",
+  pending: "Очікує",
+  in_progress: "У роботі",
+  completed: "Виконано",
 }
 
 export function TasksList({ tasks }: { tasks: Task[] }) {
@@ -59,14 +68,18 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
         updateData.completed_at = new Date().toISOString()
       }
 
+      const task = tasks.find((t) => t.id === taskId)
       await supabase.from("housekeeping_tasks").update(updateData).eq("id", taskId)
 
-      // If task is completed and it's a cleaning task, update room status
-      const task = tasks.find((t) => t.id === taskId)
-      if (newStatus === "completed" && task) {
-        await supabase.from("rooms").update({ status: "available" }).eq("id", task.room_id)
+      if (newStatus === "completed" && task?.room_id && shouldAutoCreateInspection(task.task_type)) {
+        await supabase.from("housekeeping_tasks").insert({
+          room_id: task.room_id,
+          task_type: "inspection",
+          priority: task.priority,
+          status: "pending",
+          notes: `Автоматична перевірка після ${formatTaskType(task.task_type).toLowerCase()}`,
+        })
       }
-
       router.refresh()
     } catch (error) {
       console.error("Error updating task status:", error)
@@ -79,30 +92,30 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>
-          All ({tasks.length})
+          Усі ({tasks.length})
         </Button>
         <Button variant={filter === "pending" ? "default" : "outline"} size="sm" onClick={() => setFilter("pending")}>
-          Pending ({tasks.filter((t) => t.status === "pending").length})
+          Очікують ({tasks.filter((t) => t.status === "pending").length})
         </Button>
         <Button
           variant={filter === "in_progress" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("in_progress")}
         >
-          In Progress ({tasks.filter((t) => t.status === "in_progress").length})
+          У роботі ({tasks.filter((t) => t.status === "in_progress").length})
         </Button>
         <Button
           variant={filter === "completed" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("completed")}
         >
-          Completed ({tasks.filter((t) => t.status === "completed").length})
+          Виконано ({tasks.filter((t) => t.status === "completed").length})
         </Button>
       </div>
 
       {filteredTasks.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No tasks found</p>
+          <p className="text-muted-foreground">Завдань не знайдено</p>
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -115,23 +128,23 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
                     <StatusIcon className="h-5 w-5 mt-1 text-muted-foreground" />
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">Room {task.rooms.room_number}</span>
+                        <span className="font-semibold">Номер {task.rooms.room_number}</span>
                         <Badge variant="outline" className="text-xs">
                           {task.rooms.room_type.name}
                         </Badge>
                         <Badge className={priorityColors[task.priority as keyof typeof priorityColors]}>
-                          {task.priority}
+                          {formatPriority(task.priority)}
                         </Badge>
                       </div>
-                      <p className="text-sm capitalize">{task.task_type.replace(/_/g, " ")}</p>
+                      <p className="text-sm">{formatTaskType(task.task_type)}</p>
                       {task.notes && <p className="text-sm text-muted-foreground">{task.notes}</p>}
                       {task.assigned_to_profile && (
                         <p className="text-xs text-muted-foreground">
-                          Assigned to: {task.assigned_to_profile.first_name} {task.assigned_to_profile.last_name}
+                          Виконавець: {task.assigned_to_profile.first_name} {task.assigned_to_profile.last_name}
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Created: {new Date(task.created_at).toLocaleString()}
+                        Створено: {new Date(task.created_at).toLocaleString("uk-UA")}
                       </p>
                     </div>
                   </div>
@@ -145,9 +158,9 @@ export function TasksList({ tasks }: { tasks: Task[] }) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="pending">{statusLabels.pending}</SelectItem>
+                        <SelectItem value="in_progress">{statusLabels.in_progress}</SelectItem>
+                        <SelectItem value="completed">{statusLabels.completed}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

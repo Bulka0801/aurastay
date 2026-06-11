@@ -5,13 +5,13 @@ export default function NewUserPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Add New User</h1>
-        <p className="text-muted-foreground">Create a new user account for the system</p>
+        <h1 className="text-3xl font-bold tracking-tight">Додати нового користувача</h1>
+        <p className="text-muted-foreground">Створіть новий обліковий запис користувача для системи</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>User Information</CardTitle>
+          <CardTitle>Інформація про користувача</CardTitle>
         </CardHeader>
         <CardContent>
           <NewUserForm />

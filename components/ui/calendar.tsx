@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from 'lucide-react'
 import { DayButton, DayPicker, getDefaultClassNames } from 'react-day-picker'
+import { uk } from 'react-day-picker/locale';
 
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -28,6 +29,8 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      locale={uk} // Додаємо українську локаль
+      weekStartsOn={1} // Тиждень починається з понеділка
       className={cn(
         'bg-background group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
@@ -37,7 +40,9 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString('default', { month: 'short' }),
+          date.toLocaleString('uk-UA', { month: 'short' }), // Змінюємо на uk-UA
+        formatWeekdayName: (date) =>
+          date.toLocaleDateString('uk-UA', { weekday: 'short' }), // Додаємо формат для днів тижня
         ...formatters,
       }}
       classNames={{
@@ -110,7 +115,7 @@ function Calendar({
         range_middle: cn('rounded-none', defaultClassNames.range_middle),
         range_end: cn('rounded-r-md bg-accent', defaultClassNames.range_end),
         today: cn(
-          'bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none',
+          'rounded-md font-bold ring-2 ring-amber-400 ring-offset-1 data-[selected=true]:rounded-none',
           defaultClassNames.today,
         ),
         outside: cn(
@@ -190,7 +195,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={day.date.toLocaleDateString('uk-UA')} // Змінюємо на uk-UA
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

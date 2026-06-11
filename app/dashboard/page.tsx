@@ -5,6 +5,7 @@ import { AdminDashboard } from "@/components/dashboards/admin-dashboard"
 import { HousekeepingDashboard } from "@/components/dashboards/housekeeping-dashboard"
 import { AccountantDashboard } from "@/components/dashboards/accountant-dashboard"
 import { ManagerDashboard } from "@/components/dashboards/manager-dashboard"
+import { MaintenanceDashboard } from "@/components/dashboards/maintenance-dashboard"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -24,7 +25,6 @@ export default async function DashboardPage() {
   switch (profile.role) {
     case "front_desk_agent":
     case "front_desk_manager":
-    case "reservations_manager":
       return <FrontDeskDashboard profile={profile} />
 
     case "housekeeping_supervisor":
@@ -35,11 +35,13 @@ export default async function DashboardPage() {
       return <AccountantDashboard profile={profile} />
 
     case "general_manager":
-    case "revenue_manager":
-    case "sales_manager":
       return <ManagerDashboard profile={profile} />
 
-    case "system_admin":
+    case "maintenance_manager":
+    case "maintenance_staff":
+      return <MaintenanceDashboard profile={profile} />
+
+    case "system_administrator":
       return <AdminDashboard profile={profile} />
 
     default:

@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color scheme for hotel management system - professional blue-gray palette */
+  /* Кольорова схема для системи управління готелем – професійна палітра синьо-сірих відтінків */
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -120,7 +120,236 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+/* A4-документ */
+.report-document {
+  width: 210mm;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: white;
+  color: black;
+
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Увесь вміст звіту наслідує Times New Roman */
+.report-document * {
+  font-family: "Times New Roman", Times, serif;
+}
+
+/* Основний текст у звіті */
+.report-document p,
+.report-document span,
+.report-document div,
+.report-document table,
+.report-document th,
+.report-document td {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Контейнер таблиці без горизонтального скролу */
+.report-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+/* Таблиця в межах A4 */
+.report-table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: black;
+}
+
+/* Комірки таблиці */
+.report-table th,
+.report-table td {
+  border: 1px solid black;
+  padding: 3px 4px;
+  vertical-align: top;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Заголовки таблиць */
+.report-table th {
+  background: transparent;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Числові колонки */
+.report-table th.text-right,
+.report-table td.text-right {
+  text-align: center;
+}
+
+/* Підсумковий рядок */
+.report-table tfoot th,
+.report-table tfoot td {
+  background: transparent;
+  font-weight: 700;
+}
+
+/* Заміна карток на звичайні секції документа */
+.report-section {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Заголовок секції */
+.report-section-title {
+  margin: 0 0 6px;
+  padding: 0;
+
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 700;
+  text-align: left;
+}
+
+/* Старі card-класи обнуляємо, якщо десь ще залишаться */
+.report-table-card {
+  margin: 0 0 12px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+.report-table-title {
+  padding: 0 !important;
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+.report-table-title .text-base {
+  width: 100%;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Компактний клас більше не зменшує шрифт, бо тобі потрібно 14px */
+.report-table-compact {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.report-table-compact th,
+.report-table-compact td {
+  padding: 3px 4px;
+}
+
+.report-meta {
+  text-align: right;
+  justify-self: end;
+  white-space: normal;
+}
+
+@media print {
+  html,
+  body {
+    width: 210mm;
+    background: white;
+  }
+  body * {
+    visibility: hidden;
+  }
+
+  .report-document,
+  .report-document * {
+    visibility: visible;
+  }
+
+  .report-meta {
+    text-align: right;
+    justify-self: end;
+  }
+
+  .report-document {
+    width: auto;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+
+    font-family: "Times New Roman", Times, serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: black;
+  }
+
+  .report-document * {
+    font-family: "Times New Roman", Times, serif;
+  }
+
+  .report-document p,
+  .report-document span,
+  .report-document div,
+  .report-document table,
+  .report-document th,
+  .report-document td {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .report-table {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .report-table-wrapper {
+    overflow: visible !important;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 3px 4px;
+  }
+
+  .report-table-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

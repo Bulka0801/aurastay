@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
+import { formatDate, pluralGuests } from "@/lib/localization"
 
 interface InHouseGuest {
   id: string
@@ -49,7 +50,7 @@ export function InHouseTab({ inHouse }: { inHouse: InHouseGuest[] }) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, room, or reservation number..."
+            placeholder="Пошук за ім’ям, номером кімнати або бронювання..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -59,7 +60,7 @@ export function InHouseTab({ inHouse }: { inHouse: InHouseGuest[] }) {
 
       {filteredGuests.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No guests currently in-house</p>
+          <p className="text-muted-foreground">Наразі немає гостей, що проживають</p>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -71,24 +72,21 @@ export function InHouseTab({ inHouse }: { inHouse: InHouseGuest[] }) {
                     <h3 className="font-semibold">
                       {guest.guests.first_name} {guest.guests.last_name}
                     </h3>
-                    <Badge>In-House</Badge>
+                    <Badge>Проживає</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{guest.reservation_number}</p>
                   <div className="flex gap-4 text-sm">
                     <span>
-                      Room: {guest.reservation_rooms[0]?.rooms.room_number || "N/A"} (
-                      {guest.reservation_rooms[0]?.rooms.room_type.name || "N/A"})
+                      Номер: {guest.reservation_rooms[0]?.rooms.room_number || "—"} (
+                      {guest.reservation_rooms[0]?.rooms.room_type.name || "—"})
                     </span>
-                    <span>
-                      Guests: {guest.adults} Adult{guest.adults > 1 ? "s" : ""}
-                      {guest.children > 0 && `, ${guest.children} Child${guest.children > 1 ? "ren" : ""}`}
-                    </span>
-                    <span>Check-out: {new Date(guest.check_out_date).toLocaleDateString()}</span>
+                    <span>Гості: {pluralGuests(guest.adults, guest.children)}</span>
+                    <span>Виїзд: {formatDate(guest.check_out_date)}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Link href={`/dashboard/reservations/${guest.id}`}>
-                    <Button variant="outline">View Details</Button>
+                    <Button variant="outline">Деталі</Button>
                   </Link>
                 </div>
               </div>

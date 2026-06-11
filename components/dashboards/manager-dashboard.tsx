@@ -1,165 +1,357 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/server"
-import { TrendingUp, Users, DollarSign, Percent, BarChart3, DoorOpen } from "lucide-react"
 import Link from "next/link"
-import type { Profile } from "@/lib/types"
+import {
+  BarChart3,
+  BedDouble,
+  DoorOpen,
+  Percent,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import type { Profile } from "@/lib/types"
+import { signedSettledPaymentAmount } from "@/lib/rules/payments"
+import { DashboardMetricCard, DashboardPageHeader, DashboardQuickActions } from "./dashboard-primitives"
+import { ManagerCharts } from "./manager-charts"
 interface ManagerDashboardProps {
   profile: Profile
+}
+
+function formatMoneyUAH(value: number) {
+  return new Intl.NumberFormat("uk-UA", {
+    style: "currency",
+    currency: "UAH",
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("uk-UA", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? value[0] : value
 }
 
 export async function ManagerDashboard({ profile }: ManagerDashboardProps) {
   const supabase = await createClient()
 
-  // Calculate occupancy
-  const { count: totalRooms } = await supabase.from("rooms").select("*", { count: "exact", head: true })
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/Kiev",
+  })
+
+  /**
+   * Номерний фонд
+   * Для менеджерського дашборду зайнятість краще рахувати за статусом номерів,
+   * а не за кількістю бронювань, бо завантаженість — це показник номерного фонду.
+   */
+  const { count: totalRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+
+  const { count: availableRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+    .eq("occupancy_status", "vacant")
+    .eq("operational_status", "operational")
+    .in("housekeeping_status", ["clean", "inspected"])
 
   const { count: occupiedRooms } = await supabase
-    .from("reservations")
+    .from("rooms")
     .select("*", { count: "exact", head: true })
+    .eq("occupancy_status", "occupied")
+
+  const { count: dirtyRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+    .eq("housekeeping_status", "dirty")
+
+  const { count: cleaningRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+    .eq("housekeeping_status", "cleaning")
+
+  const { count: maintenanceRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+    .in("operational_status", ["maintenance", "out_of_order"])
+
+  const { count: blockedRooms } = await supabase
+    .from("rooms")
+    .select("*", { count: "exact", head: true })
+    .eq("operational_status", "blocked")
+
+  const occupancy =
+    totalRooms && totalRooms > 0
+      ? ((occupiedRooms || 0) / totalRooms) * 100
+      : 0
+
+  /**
+   * Реальна кількість гостей у готелі.
+   * Це adults + children, а не кількість бронювань.
+   */
+  const { data: inHouseReservations } = await supabase
+    .from("reservations")
+    .select("id, adults, children")
     .eq("status", "checked_in")
 
-  const occupancy = totalRooms ? ((occupiedRooms || 0) / totalRooms) * 100 : 0
+  const inHouseAdults =
+    inHouseReservations?.reduce(
+      (sum, reservation) => sum + (reservation.adults || 0),
+      0
+    ) || 0
 
-  // Get today's revenue
-  const today = new Date().toISOString().split("T")[0]
+  const inHouseChildren =
+    inHouseReservations?.reduce(
+      (sum, reservation) => sum + (reservation.children || 0),
+      0
+    ) || 0
+
+  const inHouseGuests = inHouseAdults + inHouseChildren
+
+  /**
+   * Дохід за сьогодні.
+   * Для української PMS відображаємо гривню, не долар.
+   */
   const { data: todayPayments } = await supabase
     .from("payments")
-    .select("amount")
+    .select("amount, payment_status")
     .gte("payment_date", `${today}T00:00:00`)
+    .lt("payment_date", `${today}T23:59:59`)
 
-  const todayRevenue = todayPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
+  const todayRevenue =
+    todayPayments?.reduce((sum, payment) => sum + signedSettledPaymentAmount(payment), 0) ||
+    0
 
-  // Calculate ADR (Average Daily Rate)
+  /**
+   * ADR та RevPAR.
+   * Для MVP рахуємо на основі активних проживань.
+   * Для production-рівня краще рахувати за закритими або фактично прожитими ночами
+   * у звітному періоді.
+   */
   const { data: checkedInReservations } = await supabase
     .from("reservations")
     .select("total_amount, check_in_date, check_out_date")
     .eq("status", "checked_in")
 
   let totalNights = 0
-  let totalRevenue = 0
-  checkedInReservations?.forEach((res) => {
-    const checkIn = new Date(res.check_in_date)
-    const checkOut = new Date(res.check_out_date)
-    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
-    totalNights += nights
-    totalRevenue += Number(res.total_amount)
-  })
-  const adr = totalNights > 0 ? totalRevenue / totalNights : 0
+  let totalAccommodationRevenue = 0
 
-  // Calculate RevPAR
-  const revpar = totalRooms ? totalRevenue / totalRooms : 0
+  checkedInReservations?.forEach((reservation) => {
+    const checkIn = new Date(reservation.check_in_date)
+    const checkOut = new Date(reservation.check_out_date)
+
+    const nights = Math.max(
+      1,
+      Math.ceil(
+        (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
+      )
+    )
+
+    totalNights += nights
+    totalAccommodationRevenue += Number(reservation.total_amount || 0)
+  })
+
+  const adr =
+    totalNights > 0 ? totalAccommodationRevenue / totalNights : 0
+
+  const revpar =
+    totalRooms && totalRooms > 0
+      ? totalAccommodationRevenue / totalRooms
+      : 0
+
+  /**
+   * Дані для графіка стану номерного фонду.
+   */
+  const roomStatusData = [
+    {
+      name: "Готові",
+      value: availableRooms || 0,
+    },
+    {
+      name: "Зайняті",
+      value: occupiedRooms || 0,
+    },
+    {
+      name: "Потребують прибирання",
+      value: dirtyRooms || 0,
+    },
+    {
+      name: "Прибираються",
+      value: cleaningRooms || 0,
+    },
+    {
+      name: "У ремонті",
+      value: maintenanceRooms || 0,
+    },
+    {
+      name: "Заблоковані",
+      value: blockedRooms || 0,
+    },
+  ]
+
+  /**
+   * Топ типів номерів.
+   * MVP-підхід: отримуємо reservation_rooms і рахуємо типи в TypeScript.
+   */
+  const { data: reservationRoomsForTypes } = await supabase
+    .from("reservation_rooms")
+    .select(
+      `
+      rooms!reservation_rooms_room_id_fkey (
+        room_type:room_types (
+          name
+        )
+      )
+    `
+    )
+
+  const roomTypeCounts = new Map<string, number>()
+
+  reservationRoomsForTypes?.forEach((item) => {
+    const room = firstRelation(item.rooms)
+    const roomType = firstRelation(room?.room_type)
+    const roomTypeName =
+      roomType?.name || "Тип не вказано"
+
+    roomTypeCounts.set(
+      roomTypeName,
+      (roomTypeCounts.get(roomTypeName) || 0) + 1
+    )
+  })
+
+  const topRoomTypesData = Array.from(roomTypeCounts.entries())
+    .map(([name, value]) => ({
+      name,
+      value,
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+
+  const freeRooms = Math.max(
+    0,
+    (totalRooms || 0) - (occupiedRooms || 0)
+  )
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Management Dashboard</h1>
-          <p className="text-slate-600">Welcome, {profile.first_name}! Key performance indicators and insights</p>
-        </div>
+      <DashboardPageHeader
+        title="Дашборд генерального менеджера"
+        description={`Операційний і фінансовий огляд готелю на сьогодні, ${profile.first_name}.`}
+        actions={
         <Button asChild>
           <Link href="/dashboard/reports">
             <BarChart3 className="mr-2 h-4 w-4" />
-            View Reports
+            Переглянути звіти
           </Link>
         </Button>
+        }
+      />
+
+      {/* Ключові показники */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          title="Рівень завантаженості"
+          value={`${formatPercent(occupancy)}%`}
+          description={`Зайнято ${occupiedRooms || 0} з ${totalRooms || 0} номерів`}
+          icon={Percent}
+          tone="blue"
+          href="/dashboard/room-rack"
+        />
+        <DashboardMetricCard
+          title="Гості в готелі"
+          value={inHouseGuests}
+          description={`${inHouseAdults} дорослих · ${inHouseChildren} дітей`}
+          icon={Users}
+          tone="emerald"
+          href="/dashboard/front-desk"
+        />
+        <DashboardMetricCard
+          title="ADR"
+          value={formatMoneyUAH(adr)}
+          description="Середня добова ціна проживання"
+          icon={Wallet}
+          tone="amber"
+          href="/dashboard/reports"
+        />
+        <DashboardMetricCard
+          title="RevPAR"
+          value={formatMoneyUAH(revpar)}
+          description="Дохід на доступний номер"
+          icon={TrendingUp}
+          tone="slate"
+          href="/dashboard/reports"
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-            <Percent className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{occupancy.toFixed(1)}%</div>
-            <p className="text-xs text-slate-600">Current occupancy</p>
-          </CardContent>
-        </Card>
+      {/* Аналітичні графіки */}
+      <ManagerCharts
+        roomStatusData={roomStatusData}
+        topRoomTypesData={topRoomTypesData}
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Guests</CardTitle>
-            <Users className="h-4 w-4 text-slate-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{occupiedRooms || 0}</div>
-            <p className="text-xs text-slate-600">In-house</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ADR</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${adr.toFixed(2)}</div>
-            <p className="text-xs text-slate-600">Average daily rate</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">RevPAR</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${revpar.toFixed(2)}</div>
-            <p className="text-xs text-slate-600">Revenue per available room</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Показники за сьогодні + швидкі дії */}
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Today's Performance</CardTitle>
+            <CardTitle>Показники за сьогодні</CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Revenue</span>
-                <span className="font-semibold">${todayRevenue.toFixed(2)}</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border bg-slate-50 p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Дохід за сьогодні
+                </span>
+                <span className="font-semibold text-slate-900">
+                  {formatMoneyUAH(todayRevenue)}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Occupied Rooms</span>
-                <span className="font-semibold">{occupiedRooms}</span>
+
+              <div className="flex items-center justify-between rounded-lg border bg-slate-50 p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Зайняті номери
+                </span>
+                <span className="font-semibold text-slate-900">
+                  {occupiedRooms || 0}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Available Rooms</span>
-                <span className="font-semibold">{(totalRooms || 0) - (occupiedRooms || 0)}</span>
+
+              <div className="flex items-center justify-between rounded-lg border bg-slate-50 p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Вільні номери
+                </span>
+                <span className="font-semibold text-slate-900">
+                  {freeRooms}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border bg-slate-50 p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Номерів у ремонті
+                </span>
+                <span className="font-semibold text-slate-900">
+                  {maintenanceRooms || 0}
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button asChild className="w-full justify-start bg-transparent" variant="outline">
-              <Link href="/dashboard/reservations">
-                <Users className="mr-2 h-4 w-4" />
-                View Reservations
-              </Link>
-            </Button>
-            <Button asChild className="w-full justify-start bg-transparent" variant="outline">
-              <Link href="/dashboard/reports">
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Financial Reports
-              </Link>
-            </Button>
-            <Button asChild className="w-full justify-start bg-transparent" variant="outline">
-              <Link href="/dashboard/rooms">
-                <DoorOpen className="mr-2 h-4 w-4" />
-                Room Status
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <DashboardQuickActions
+          actions={[
+            { label: "Переглянути бронювання", href: "/dashboard/reservations", icon: Users },
+            { label: "Фінансові звіти", href: "/dashboard/reports", icon: BarChart3 },
+            { label: "Шахматка номерів", href: "/dashboard/room-rack", icon: DoorOpen },
+            { label: "Номерний фонд", href: "/dashboard/rooms", icon: BedDouble },
+          ]}
+        />
       </div>
     </div>
   )

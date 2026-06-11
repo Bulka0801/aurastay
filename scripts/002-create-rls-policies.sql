@@ -104,13 +104,39 @@ CREATE POLICY "Authorized staff can add charges"
   USING (get_user_role() IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'accountant', 'fb_manager'));
 
 -- Housekeeping tasks policies
-CREATE POLICY "Staff can view housekeeping tasks"
+CREATE POLICY "Housekeeping staff can view assigned tasks"
   ON housekeeping_tasks FOR SELECT
-  USING (get_user_role() IN ('system_administrator', 'front_desk_manager', 'housekeeping_supervisor', 'housekeeping_staff'));
+  USING (
+    assigned_to = auth.uid()
+    OR get_user_role() IN ('system_administrator', 'housekeeping_supervisor')
+  );
 
-CREATE POLICY "Housekeeping can manage tasks"
-  ON housekeeping_tasks FOR ALL
-  USING (get_user_role() IN ('system_administrator', 'housekeeping_supervisor', 'housekeeping_staff'));
+CREATE POLICY "Housekeeping staff can update assigned tasks"
+  ON housekeeping_tasks FOR UPDATE
+  USING (
+    assigned_to = auth.uid()
+    OR get_user_role() IN ('system_administrator', 'housekeeping_supervisor')
+  )
+  WITH CHECK (
+    assigned_to = auth.uid()
+    OR get_user_role() IN ('system_administrator', 'housekeeping_supervisor')
+  );
+
+CREATE POLICY "Housekeeping supervisors can create tasks"
+  ON housekeeping_tasks FOR INSERT
+  WITH CHECK (get_user_role() IN ('system_administrator', 'housekeeping_supervisor'));
+
+CREATE POLICY "Front desk can create checkout cleaning tasks"
+  ON housekeeping_tasks FOR INSERT
+  WITH CHECK (
+    get_user_role() IN ('front_desk_manager', 'front_desk_agent')
+    AND task_type = 'checkout_cleaning'
+    AND status = 'pending'
+  );
+
+CREATE POLICY "Housekeeping supervisors can delete tasks"
+  ON housekeeping_tasks FOR DELETE
+  USING (get_user_role() IN ('system_administrator', 'housekeeping_supervisor'));
 
 -- Maintenance requests policies
 CREATE POLICY "Staff can view maintenance requests"

@@ -8,16 +8,27 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Calendar,
-  DoorOpen,
   BedDouble,
   Wrench,
   DollarSign,
   BarChart3,
-  Settings,
   ClipboardList,
   Users,
-  TrendingUp,
+  House,
+  ConciergeBell,
+  Hotel,
+  HistoryIcon,
 } from "lucide-react"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
+} from "@/components/ui/sidebar"
 
 interface NavItem {
   title: string
@@ -28,68 +39,88 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    title: "Dashboard",
+    title: "Дашборд",
     href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: "Reservations",
-    href: "/dashboard/reservations",
+    title: "Шахматка номерів",
+    href: "/dashboard/room-rack",
     icon: Calendar,
-    roles: ["system_admin", "front_desk_manager", "front_desk_agent", "reservations_manager"],
+    roles: ["general_manager", "front_desk_manager", "front_desk_agent"],
   },
   {
-    title: "Front Desk",
+    title: "Бронювання",
+    href: "/dashboard/reservations",
+    icon: House,
+    roles: ["general_manager", "front_desk_manager", "front_desk_agent"],
+  },
+  {
+    title: "Рецепція",
     href: "/dashboard/front-desk",
-    icon: DoorOpen,
-    roles: ["system_admin", "front_desk_manager", "front_desk_agent"],
+    icon: ConciergeBell,
+    roles: ["front_desk_manager", "front_desk_agent"],
   },
   {
-    title: "Rooms",
+    title: "Номерний фонд",
     href: "/dashboard/rooms",
     icon: BedDouble,
+    roles: [
+      "system_administrator",
+      "general_manager",
+      "front_desk_manager",
+      "front_desk_agent",
+      "housekeeping_supervisor",
+      "maintenance_staff",
+    ],
   },
   {
-    title: "Housekeeping",
+    title: "Господарська служба",
     href: "/dashboard/housekeeping",
     icon: ClipboardList,
-    roles: ["system_admin", "front_desk_manager", "housekeeping_supervisor", "housekeeping_staff"],
+    roles: ["housekeeping_supervisor", "housekeeping_staff"],
   },
   {
-    title: "Maintenance",
+    title: "Технічне обслуговування",
     href: "/dashboard/maintenance",
     icon: Wrench,
-    roles: ["system_admin", "maintenance_manager", "maintenance_staff", "housekeeping_supervisor"],
+    roles: ["maintenance_staff", "housekeeping_supervisor"],
   },
   {
-    title: "Guests",
+    title: "Гості",
     href: "/dashboard/guests",
     icon: Users,
-    roles: ["system_admin", "general_manager", "front_desk_manager", "front_desk_agent", "reservations_manager"],
+    roles: ["general_manager", "front_desk_manager", "front_desk_agent"],
   },
   {
-    title: "Finance",
+    title: "Користувачі та ролі",
+    href: "/dashboard/admin/users",
+    icon: Users,
+    roles: ["system_administrator"],
+  },
+  {
+    title: "Налаштування готелю",
+    href: "/dashboard/admin/settings",
+    icon: BedDouble,
+    roles: ["system_administrator"],
+  },
+  {
+    title: "Журнал дій",
+    href: "/dashboard/admin/activity",
+    icon: HistoryIcon,
+    roles: ["system_administrator"],
+  },
+  {
+    title: "Фінанси",
     href: "/dashboard/finance",
     icon: DollarSign,
-    roles: ["system_admin", "general_manager", "accountant", "front_desk_manager"],
+    roles: ["general_manager", "front_desk_manager", "front_desk_agent"],
   },
   {
-    title: "Reports",
+    title: "Звіти",
     href: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["system_admin", "general_manager", "front_desk_manager", "revenue_manager", "accountant"],
-  },
-  {
-    title: "Sales & Marketing",
-    href: "/dashboard/sales",
-    icon: TrendingUp,
-    roles: ["system_admin", "general_manager", "sales_manager", "revenue_manager"],
-  },
-  {
-    title: "Administration",
-    href: "/dashboard/admin",
-    icon: Settings,
-    roles: ["system_admin"],
+    roles: ["general_manager", "front_desk_manager", "front_desk_agent"],
   },
 ]
 
@@ -99,33 +130,61 @@ interface DashboardNavProps {
 
 export function DashboardNav({ role }: DashboardNavProps) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   const filteredNavItems = navItems.filter((item) => !item.roles || item.roles.includes(role))
 
   return (
-    <aside className="hidden w-64 border-r bg-sidebar md:block">
-      <nav className="flex flex-col gap-1 p-4">
-        {filteredNavItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border p-4 group-data-[collapsible=icon]:p-2">
+        <Link
+          href="/dashboard"
+          aria-label="Перейти на дашборд"
+          className="-m-1 flex min-w-0 cursor-pointer items-center gap-3 rounded-lg p-1 transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:justify-center"
+        >
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground transition-colors">
+            <Hotel className="size-4" />
+          </div>
+          <span className="truncate font-semibold group-data-[collapsible=icon]:hidden">AuraStay</span>
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu className="p-2 group-data-[collapsible=icon]:items-center">
+          {filteredNavItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.title}
-            </Link>
-          )
-        })}
-      </nav>
-    </aside>
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.title}
+                  className={cn(
+                    "h-10 gap-3 rounded-lg px-3 group-data-[collapsible=icon]:mx-auto",
+                    isActive &&
+                      "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm hover:bg-sidebar-primary hover:text-sidebar-primary-foreground",
+                  )}
+                >
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenMobile(false)
+                      }
+                    }}
+                  >
+                    <Icon className="size-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
   )
 }

@@ -8,17 +8,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE user_role AS ENUM (
   'system_administrator',
   'general_manager',
-  'front_desk_manager',
   'front_desk_agent',
-  'reservations_manager',
   'housekeeping_supervisor',
   'housekeeping_staff',
-  'revenue_manager',
-  'sales_manager',
-  'accountant',
-  'maintenance_manager',
   'maintenance_staff',
-  'fb_manager'
 );
 
 -- Room status enum
@@ -57,8 +50,7 @@ CREATE TYPE payment_method AS ENUM (
   'cash',
   'credit_card',
   'debit_card',
-  'bank_transfer',
-  'corporate_account'
+  'bank_transfer'
 );
 
 -- Maintenance request status enum
@@ -114,6 +106,7 @@ CREATE TABLE guests (
   postal_code VARCHAR(20),
   company VARCHAR(255),
   is_vip BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
   loyalty_tier VARCHAR(50),
   preferences TEXT,
   notes TEXT,
@@ -164,8 +157,6 @@ CREATE TABLE rate_plans (
   discount_percentage DECIMAL(5, 2) DEFAULT 0,
   cancellation_policy TEXT,
   deposit_policy TEXT,
-  min_advance_days INTEGER DEFAULT 0,
-  max_advance_days INTEGER,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

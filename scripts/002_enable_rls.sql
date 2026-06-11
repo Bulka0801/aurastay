@@ -12,6 +12,15 @@ ALTER TABLE public.housekeeping_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.maintenance_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.current_profile_role()
+RETURNS public.user_role
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid()
+$$;
+
 -- Profiles policies
 CREATE POLICY "Users can view their own profile"
   ON public.profiles FOR SELECT
@@ -23,11 +32,13 @@ CREATE POLICY "Users can update their own profile"
 
 CREATE POLICY "Admins can view all profiles"
   ON public.profiles FOR SELECT
+  USING (public.current_profile_role() IN ('system_administrator', 'general_manager'));
+
+CREATE POLICY "Housekeeping supervisors can view housekeeping profiles"
+  ON public.profiles FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager')
-    )
+    role IN ('housekeeping_staff', 'housekeeping_supervisor', 'maintenance_staff')
+    AND public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
   );
 
 CREATE POLICY "Admins can insert profiles"
@@ -35,7 +46,7 @@ CREATE POLICY "Admins can insert profiles"
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'general_manager')
     )
   );
 
@@ -49,7 +60,7 @@ CREATE POLICY "Admins and managers can manage room types"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager', 'front_desk_manager', 'reservations_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'general_manager', 'front_desk_manager', 'reservations_manager')
     )
   );
 
@@ -63,7 +74,7 @@ CREATE POLICY "Staff can update room status"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'front_desk_manager', 'front_desk_agent', 'housekeeping_supervisor', 'housekeeping_staff')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'housekeeping_supervisor', 'housekeeping_staff')
     )
   );
 
@@ -77,7 +88,7 @@ CREATE POLICY "Staff can manage guests"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'front_desk_manager', 'front_desk_agent', 'reservations_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'reservations_manager')
     )
   );
 
@@ -91,7 +102,7 @@ CREATE POLICY "Staff can manage reservations"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager', 'front_desk_manager', 'front_desk_agent', 'reservations_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'general_manager', 'front_desk_manager', 'front_desk_agent', 'reservations_manager')
     )
   );
 
@@ -105,7 +116,7 @@ CREATE POLICY "Staff can manage folios"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'front_desk_manager', 'front_desk_agent', 'accountant')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'accountant')
     )
   );
 
@@ -119,7 +130,7 @@ CREATE POLICY "Staff can add folio charges"
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'front_desk_manager', 'front_desk_agent', 'accountant')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'accountant')
     )
   );
 
@@ -133,7 +144,7 @@ CREATE POLICY "Staff can process payments"
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'front_desk_manager', 'front_desk_agent', 'accountant')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'front_desk_manager', 'front_desk_agent', 'accountant')
     )
   );
 
@@ -142,19 +153,38 @@ CREATE POLICY "Housekeeping staff can view their tasks"
   ON public.housekeeping_tasks FOR SELECT
   USING (
     auth.uid() = assigned_to OR
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'housekeeping_supervisor')
-    )
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
   );
 
-CREATE POLICY "Housekeeping supervisors can manage tasks"
-  ON public.housekeeping_tasks FOR ALL
+CREATE POLICY "Housekeeping staff can update assigned tasks"
+  ON public.housekeeping_tasks FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'housekeeping_supervisor')
-    )
+    auth.uid() = assigned_to OR
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
+  )
+  WITH CHECK (
+    auth.uid() = assigned_to OR
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
+  );
+
+CREATE POLICY "Housekeeping supervisors can create tasks"
+  ON public.housekeeping_tasks FOR INSERT
+  WITH CHECK (
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
+  );
+
+CREATE POLICY "Front desk can create checkout cleaning tasks"
+  ON public.housekeeping_tasks FOR INSERT
+  WITH CHECK (
+    public.current_profile_role() IN ('front_desk_manager', 'front_desk_agent')
+    AND task_type = 'checkout_cleaning'
+    AND status = 'pending'
+  );
+
+CREATE POLICY "Housekeeping supervisors can delete tasks"
+  ON public.housekeeping_tasks FOR DELETE
+  USING (
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
   );
 
 -- Maintenance requests policies
@@ -170,10 +200,7 @@ CREATE POLICY "Maintenance staff can update requests"
   ON public.maintenance_requests FOR UPDATE
   USING (
     auth.uid() = assigned_to OR
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'maintenance_manager', 'housekeeping_supervisor')
-    )
+    public.current_profile_role() IN ('system_administrator', 'housekeeping_supervisor')
   );
 
 -- Rate plans policies
@@ -186,7 +213,7 @@ CREATE POLICY "Managers can manage rate plans"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager', 'revenue_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'general_manager', 'revenue_manager')
     )
   );
 
@@ -196,7 +223,7 @@ CREATE POLICY "Admins can view audit logs"
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('system_admin', 'general_manager')
+      WHERE id = auth.uid() AND role IN ('system_administrator', 'general_manager')
     )
   );
 

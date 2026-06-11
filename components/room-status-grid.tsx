@@ -2,6 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BedDouble, Wrench, CheckCircle2, Clock, AlertTriangle } from "lucide-react"
+import { getRoomLegacyStatus } from "@/lib/rooms/availability"
+import type {
+  RoomHousekeepingStatus,
+  RoomOccupancyStatus,
+  RoomOperationalStatus,
+} from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface Room {
@@ -9,6 +15,9 @@ interface Room {
   room_number: string
   floor: number
   status: string
+  occupancy_status?: RoomOccupancyStatus | null
+  housekeeping_status?: RoomHousekeepingStatus | null
+  operational_status?: RoomOperationalStatus | null
   room_types?: {
     name: string
     code: string
@@ -22,42 +31,47 @@ interface RoomStatusGridProps {
 
 const statusConfig = {
   available: {
-    label: "Available",
+    label: "Вільний",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: CheckCircle2,
   },
   occupied: {
-    label: "Occupied",
+    label: "Зайнятий",
     color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: BedDouble,
   },
   dirty: {
-    label: "Dirty",
+    label: "Потребує прибирання",
     color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: AlertTriangle,
   },
   cleaning: {
-    label: "Cleaning",
+    label: "Прибирається",
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     icon: Clock,
   },
+  inspected: {
+    label: "Перевірено",
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    icon: CheckCircle2,
+  },
   maintenance: {
-    label: "Maintenance",
+    label: "На ремонті",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: Wrench,
   },
   out_of_order: {
-    label: "Out of Order",
+    label: "Несправний",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: Wrench,
   },
   blocked: {
-    label: "Blocked",
+    label: "Заблокований",
     color: "bg-gray-100 text-gray-800 border-gray-200",
     icon: BedDouble,
   },
   inspecting: {
-    label: "Inspecting",
+    label: "На перевірці",
     color: "bg-purple-100 text-purple-800 border-purple-200",
     icon: Clock,
   },
@@ -85,14 +99,17 @@ export function RoomStatusGrid({ rooms, onRoomClick }: RoomStatusGridProps) {
       {floors.map((floor) => (
         <Card key={floor}>
           <CardHeader>
-            <CardTitle className="text-lg">Floor {floor}</CardTitle>
+            <CardTitle className="text-lg">Поверх {floor}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6">
               {roomsByFloor[floor]
                 .sort((a, b) => a.room_number.localeCompare(b.room_number))
                 .map((room) => {
-                  const status = statusConfig[room.status as keyof typeof statusConfig] || statusConfig.available
+                  const roomStatus = getRoomLegacyStatus(room)
+                  const status =
+                    statusConfig[roomStatus as keyof typeof statusConfig] ||
+                    statusConfig.available
                   const Icon = status.icon
 
                   return (
@@ -106,7 +123,7 @@ export function RoomStatusGrid({ rooms, onRoomClick }: RoomStatusGridProps) {
                     >
                       <Icon className="h-5 w-5" />
                       <span className="text-lg font-bold">{room.room_number}</span>
-                      <span className="text-xs">{room.room_types?.code}</span>
+                      <span className="text-xs">{status.label}</span>
                     </button>
                   )
                 })}

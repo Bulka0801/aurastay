@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useMemo, useState } from "react"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -12,11 +13,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DataTable } from "@/components/data-table"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Search,
+  Archive,
   Plus,
-  RefreshCw,
   Loader2,
   User,
   Star,
@@ -32,9 +34,26 @@ import {
   Users,
   Crown,
   History,
+  RotateCcw,
 } from "lucide-react"
 import type { Profile } from "@/lib/types"
 import useSWR from "swr"
+import { formatCurrency, formatDate, formatReservationStatus, pluralGuests } from "@/lib/localization"
+import { pluralizeGuests } from "@/lib/i18n/uk"
+import {
+  UA_PHONE_PREFIX,
+  formatEmail,
+  formatPersonName,
+  formatUaPhone,
+  formatUkrainianIdCardNumber,
+  formatUkrainianPassportNumber,
+  getUaPhoneNationalDigits,
+  isValidEmail,
+  isValidPersonName,
+  isValidUaPhone,
+  isValidUkrainianIdCardNumber,
+  isValidUkrainianPassportNumber,
+} from "@/lib/validation"
 
 interface Guest {
   id: string
@@ -55,6 +74,7 @@ interface Guest {
   preferences: string | null
   notes: string | null
   is_vip: boolean
+  is_active?: boolean | null
   created_at: string
   updated_at: string
 }
@@ -77,6 +97,135 @@ const loyaltyColors: Record<string, string> = {
   platinum: "bg-indigo-100 text-indigo-800 border-indigo-300",
 }
 
+const loyaltyTierLabels: Record<string, string> = {
+  bronze: "Бронзовий",
+  silver: "Срібний",
+  gold: "Золотий",
+  platinum: "Платиновий",
+}
+
+const vipFilterLabels = {
+  true: "VIP",
+  false: "Звичайні",
+}
+
+const loyaltyTierFilterMeta = Object.fromEntries(
+  Object.entries(loyaltyColors).map(([tier, colorClassName]) => [tier, { colorClassName }])
+)
+
+const emptyGuestForm = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  date_of_birth: "",
+  passport_number: "",
+  id_number: "",
+  nationality: "",
+  country: "",
+  city: "",
+  address: "",
+  postal_code: "",
+  company: "",
+  loyalty_tier: "",
+  preferences: "",
+  notes: "",
+  is_vip: false,
+}
+
+type GuestForm = typeof emptyGuestForm
+type GuestFormErrors = Partial<Record<keyof GuestForm | "form", string>>
+type GuestFormTouched = Partial<Record<keyof GuestForm, boolean>>
+
+function normalizeGuestForm(form: GuestForm) {
+  return {
+    first_name: form.first_name.trim(),
+    last_name: form.last_name.trim(),
+    email: form.email.trim().toLowerCase(),
+    phone: form.phone.trim(),
+    date_of_birth: form.date_of_birth,
+    passport_number: form.passport_number.trim(),
+    id_number: form.id_number.trim(),
+    nationality: form.nationality.trim(),
+    country: form.country.trim(),
+    city: form.city.trim(),
+    address: form.address.trim(),
+    postal_code: form.postal_code.trim(),
+    company: form.company.trim(),
+    loyalty_tier: form.loyalty_tier,
+    preferences: form.preferences.trim(),
+    notes: form.notes.trim(),
+    is_vip: form.is_vip,
+  }
+}
+
+function getGuestErrorMessage(message?: string) {
+  const normalized = (message ?? "").toLowerCase()
+
+  if (normalized.includes("duplicate") || normalized.includes("unique")) {
+    return "Гість із такими контактами або документами вже існує."
+  }
+
+  if (normalized.includes("column") && normalized.includes("is_active")) {
+    return "Архівування потребує міграції guests.is_active. Запустіть SQL-міграцію для архіву гостей."
+  }
+
+  return "Не вдалося зберегти гостя. Спробуйте ще раз."
+}
+
+function validateGuestForm(form: GuestForm, guests: Guest[], currentGuestId?: string): GuestFormErrors {
+  const errors: GuestFormErrors = {}
+  const normalizedForm = normalizeGuestForm(form)
+  const email = normalizedForm.email
+  const phone = form.phone.trim()
+  const birthDate = form.date_of_birth ? new Date(`${form.date_of_birth}T00:00:00`) : null
+  const passport = normalizedForm.passport_number
+  const idNumber = normalizedForm.id_number
+  const sameGuest = (guest: Guest) => guest.id === currentGuestId
+
+  if (!isValidPersonName(normalizedForm.first_name)) errors.first_name = "Мінімум 2 літери, без цифр і спецсимволів."
+  if (!isValidPersonName(normalizedForm.last_name)) errors.last_name = "Мінімум 2 літери, без цифр і спецсимволів."
+  if (email && !isValidEmail(email)) errors.email = "Введіть коректну електронну пошту."
+  if (!phone || !isValidUaPhone(phone)) errors.phone = "Телефон обовʼязковий у форматі +380 (##) ###-##-##."
+  if (birthDate && birthDate > new Date()) errors.date_of_birth = "Дата народження не може бути в майбутньому."
+  if (!passport && !idNumber) {
+    errors.passport_number = "Вкажіть номер паспорта або ID-картки."
+    errors.id_number = "Вкажіть номер ID-картки або паспорта."
+  }
+  if (passport && !isValidUkrainianPassportNumber(passport)) {
+    errors.passport_number = "Формат: 2 українські літери серії та 6 цифр, наприклад КК123456."
+  }
+  if (idNumber && !isValidUkrainianIdCardNumber(idNumber)) {
+    errors.id_number = "Номер ID-картки має містити рівно 9 цифр."
+  }
+  if (form.postal_code.trim().length > 20) errors.postal_code = "Поштовий індекс не може бути довшим за 20 символів."
+  if (form.loyalty_tier && !loyaltyTierLabels[form.loyalty_tier]) errors.loyalty_tier = "Оберіть коректний рівень лояльності."
+  if (form.preferences.trim().length > 1000) errors.preferences = "Побажання не можуть бути довшими за 1000 символів."
+  if (form.notes.trim().length > 1000) errors.notes = "Нотатки не можуть бути довшими за 1000 символів."
+
+  const duplicate = guests.find((guest) => {
+    if (sameGuest(guest)) return false
+    return Boolean(
+      (email && guest.email?.toLowerCase() === email) ||
+        (phone && guest.phone === phone) ||
+        (passport && guest.passport_number === passport) ||
+        (idNumber && guest.id_number === idNumber)
+    )
+  })
+
+  if (duplicate) {
+    const status = duplicate.is_active === false ? "архіві" : "списку гостей"
+    errors.form = `Можливий дублікат: ${duplicate.first_name} ${duplicate.last_name} вже є в ${status}. Перевірте email, телефон або документи.`
+  }
+
+  return errors
+}
+
+function formatLoyaltyTier(tier?: string | null) {
+  if (!tier) return ""
+  return loyaltyTierLabels[tier] ?? tier
+}
+
 async function fetchGuests() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -93,80 +242,435 @@ export function GuestsClient({ profile }: { profile: Profile }) {
   })
 
   const canManage = [
-    "system_admin", "general_manager", "front_desk_manager", "front_desk_agent", "reservations_manager",
+    "system_administrator", "general_manager", "front_desk_manager", "front_desk_agent", "reservations_manager",
   ].includes(profile.role)
 
-  const [search, setSearch] = useState("")
-  const [vipFilter, setVipFilter] = useState("all")
-  const [loyaltyFilter, setLoyaltyFilter] = useState("all")
   const [saving, setSaving] = useState(false)
+  const [formErrors, setFormErrors] = useState<GuestFormErrors>({})
 
   // New / Edit guest dialog
   const [editOpen, setEditOpen] = useState(false)
   const [editGuest, setEditGuest] = useState<Guest | null>(null)
-  const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    date_of_birth: "",
-    passport_number: "",
-    id_number: "",
-    nationality: "",
-    country: "",
-    city: "",
-    address: "",
-    postal_code: "",
-    company: "",
-    loyalty_tier: "",
-    preferences: "",
-    notes: "",
-    is_vip: false,
-  })
+  const [form, setForm] = useState<GuestForm>(emptyGuestForm)
+  const [initialForm, setInitialForm] = useState<GuestForm>(emptyGuestForm)
+  const [touchedFields, setTouchedFields] = useState<GuestFormTouched>({})
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   // View guest dialog
   const [viewOpen, setViewOpen] = useState(false)
   const [viewGuest, setViewGuest] = useState<Guest | null>(null)
   const [guestReservations, setGuestReservations] = useState<GuestReservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
+  const [archiveConfirmGuest, setArchiveConfirmGuest] = useState<Guest | null>(null)
 
   const allGuests = guests || []
+  const activeGuests = allGuests.filter((guest) => guest.is_active !== false)
+  const archivedGuests = allGuests.filter((guest) => guest.is_active === false)
+  const [showArchived, setShowArchived] = useState(false)
+  const visibleGuests = showArchived ? archivedGuests : activeGuests
 
-  const filteredGuests = allGuests.filter((g) => {
-    if (vipFilter === "vip" && !g.is_vip) return false
-    if (vipFilter === "regular" && g.is_vip) return false
-    if (loyaltyFilter !== "all" && g.loyalty_tier !== loyaltyFilter) return false
-    if (search) {
-      const q = search.toLowerCase()
-      return (
-        g.first_name.toLowerCase().includes(q) ||
-        g.last_name.toLowerCase().includes(q) ||
-        g.email?.toLowerCase().includes(q) ||
-        g.phone?.toLowerCase().includes(q) ||
-        g.passport_number?.toLowerCase().includes(q) ||
-        g.company?.toLowerCase().includes(q)
-      )
-    }
-    return true
-  })
+  const vipCount = activeGuests.filter((g) => g.is_vip).length
+  const totalGuests = activeGuests.length
+  const currentMonth = new Date().getMonth()
+  const birthdaysThisMonth = activeGuests.filter((guest) => {
+    if (!guest.date_of_birth) return false
+    const birthDate = new Date(guest.date_of_birth)
+    return !Number.isNaN(birthDate.getTime()) && birthDate.getMonth() === currentMonth
+  }).length
+  const validationErrors = useMemo(
+    () => validateGuestForm(form, allGuests, editGuest?.id),
+    [allGuests, editGuest?.id, form],
+  )
+  const normalizedForm = useMemo(() => normalizeGuestForm(form), [form])
+  const normalizedInitialForm = useMemo(() => normalizeGuestForm(initialForm), [initialForm])
+  const hasChanges = JSON.stringify(normalizedForm) !== JSON.stringify(normalizedInitialForm)
+  const hasValidationErrors = Object.keys(validationErrors).length > 0
+  const shouldShowFieldError = (field: keyof GuestForm) => submitAttempted || Boolean(touchedFields[field])
+  const fieldError = (field: keyof GuestForm) =>
+    shouldShowFieldError(field) ? formErrors[field] ?? validationErrors[field] : undefined
+  const markTouched = (field: keyof GuestForm) => {
+    setTouchedFields((current) => ({ ...current, [field]: true }))
+  }
 
-  const vipCount = allGuests.filter((g) => g.is_vip).length
-  const totalGuests = allGuests.length
+  const guestColumns = useMemo<ColumnDef<Guest>[]>(
+    () => [
+      {
+        id: "guest",
+        accessorFn: (row) => `${row.first_name} ${row.last_name}`,
+        header: "Гість",
+        cell: ({ row }) => {
+          const guest = row.original
+          return (
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                  guest.is_vip ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
+                }`}
+              >
+                {guest.first_name[0]}
+                {guest.last_name[0]}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-semibold">
+                    {guest.first_name} {guest.last_name}
+                  </span>
+                  {guest.is_active === false && (
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                      Архів
+                    </Badge>
+                  )}
+                  {guest.is_vip && (
+                    <Badge className="border border-amber-300 bg-amber-100 px-1.5 py-0 text-[10px] text-amber-800">
+                      <Star className="mr-0.5 h-2.5 w-2.5" />
+                      VIP
+                    </Badge>
+                  )}
+                  {guest.loyalty_tier && (
+                    <Badge variant="outline" className={`px-1.5 py-0 text-[10px] capitalize ${loyaltyColors[guest.loyalty_tier] || ""}`}>
+                      {formatLoyaltyTier(guest.loyalty_tier)}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {guest.nationality || guest.country || "—"}
+                </p>
+              </div>
+            </div>
+          )
+        },
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Ім’я або прізвище гостя",
+          filterHelpText: "Пошук працює окремо по імені та прізвищу.",
+          sortLabel: {
+            asc: "Гості А-Я",
+            desc: "Гості Я-А",
+          },
+          minWidth: 240,
+        },
+      },
+      {
+        id: "contact",
+        accessorFn: (row) => [row.email, row.phone].filter(Boolean).join(" "),
+        header: "Контакти",
+        cell: ({ row }) => {
+          const guest = row.original
+          return (
+            <div className="space-y-1 text-sm">
+              {guest.email ? (
+                <div className="flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{guest.email}</span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+              {guest.phone && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5" />
+                  <span>{guest.phone}</span>
+                </div>
+              )}
+            </div>
+          )
+        },
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Email або телефон",
+          filterHelpText: "Пошук працює по email і телефону.",
+          sortLabel: {
+            asc: "Контакти А-Я",
+            desc: "Контакти Я-А",
+          },
+          minWidth: 220,
+        },
+      },
+      {
+        id: "documents",
+        accessorFn: (row) => [row.passport_number, row.id_number].filter(Boolean).join(" "),
+        header: "Документи",
+        cell: ({ row }) => {
+          const guest = row.original
+          if (!guest.passport_number && !guest.id_number) return <span className="text-muted-foreground">—</span>
+
+          return (
+            <div className="space-y-1 text-sm">
+              {guest.passport_number && <p>Номер паспорта: {guest.passport_number}</p>}
+              {guest.id_number && <p className="text-xs text-muted-foreground">ID-картка: {guest.id_number}</p>}
+            </div>
+          )
+        },
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Паспорт або ID-картка",
+          filterHelpText: "Пошук працює за номером паспорта та ID-картки.",
+          sortLabel: {
+            asc: "Документи А-Я",
+            desc: "Документи Я-А",
+          },
+          minWidth: 180,
+        },
+      },
+      {
+        accessorFn: (row) => row.date_of_birth ?? "",
+        id: "date_of_birth",
+        header: "Дата народження",
+        cell: ({ row }) => (
+          <span className="text-sm font-medium text-foreground">
+            {formatDate(row.original.date_of_birth)}
+          </span>
+        ),
+        sortingFn: (rowA, rowB, columnId) => {
+          const valueA = String(rowA.getValue(columnId) ?? "").trim()
+          const valueB = String(rowB.getValue(columnId) ?? "").trim()
+
+          if (!valueA && !valueB) return 0
+          if (!valueA) return 1
+          if (!valueB) return -1
+
+          return valueA.localeCompare(valueB)
+        },
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "dateRange",
+          searchable: false,
+          dataType: "date",
+          datePresets: [
+            { value: "today", label: "Сьогодні" },
+            { value: "thisMonth", label: "Цього місяця" },
+          ],
+          sortLabel: {
+            asc: "Найстарші гості спочатку",
+            desc: "Наймолодші гості спочатку",
+          },
+          minWidth: 150,
+        },
+      },
+      {
+        accessorKey: "preferences",
+        header: "Побажання",
+        cell: ({ row }) =>
+          row.original.preferences ? (
+            <p className="max-w-[280px] whitespace-normal break-words text-sm text-muted-foreground">
+              {row.original.preferences}
+            </p>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Побажання гостя",
+          filterHelpText: "Пошук працює по побажаннях і примітках про проживання.",
+          sortLabel: {
+            asc: "Побажання А-Я",
+            desc: "Побажання Я-А",
+          },
+          minWidth: 260,
+        },
+      },
+      {
+        accessorKey: "notes",
+        header: "Нотатки",
+        cell: ({ row }) =>
+          row.original.notes ? (
+            <p className="max-w-[280px] whitespace-normal break-words text-sm text-muted-foreground">
+              {row.original.notes}
+            </p>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Внутрішні нотатки",
+          filterHelpText: "Шукати можна по внутрішніх нотатках персоналу.",
+          sortLabel: {
+            asc: "Нотатки А-Я",
+            desc: "Нотатки Я-А",
+          },
+          minWidth: 260,
+        },
+      },
+      {
+        id: "location",
+        accessorFn: (row) => [row.country, row.city, row.company].filter(Boolean).join(" "),
+        header: "Локація",
+        cell: ({ row }) => {
+          const guest = row.original
+          return (
+            <div className="space-y-1 text-sm">
+              <p>{guest.country || "—"}</p>
+              <p className="text-xs text-muted-foreground">
+                {guest.city || "—"}
+                {guest.company ? ` • ${guest.company}` : ""}
+              </p>
+            </div>
+          )
+        },
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "search",
+          searchable: true,
+          dataType: "text",
+          searchPlaceholder: "Країна, місто або компанія",
+          filterHelpText: "Пошук працює по країні, місту та компанії.",
+          sortLabel: {
+            asc: "Локації А-Я",
+            desc: "Локації Я-А",
+          },
+          minWidth: 220,
+        },
+      },
+      {
+        accessorKey: "is_vip",
+        header: "VIP",
+        cell: ({ row }) =>
+          row.original.is_vip ? (
+            <Badge className="bg-amber-100 text-amber-800">VIP</Badge>
+          ) : (
+            <Badge variant="outline">
+              Звичайний
+            </Badge>
+          ),
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "checkbox",
+          searchable: false,
+          dataType: "enum",
+          filterOptions: ["true", "false"],
+          filterLabels: vipFilterLabels,
+          preserveFilterOptionOrder: true,
+          minWidth: 120,
+        },
+      },
+      {
+        accessorKey: "loyalty_tier",
+        header: "Лояльність",
+        cell: ({ row }) =>
+          row.original.loyalty_tier ? (
+            <Badge
+              variant="outline"
+              className={`capitalize ${loyaltyColors[row.original.loyalty_tier] || ""}`}
+            >
+              {formatLoyaltyTier(row.original.loyalty_tier)}
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        meta: {
+          sortable: true,
+          filterable: true,
+          filterType: "checkbox",
+          searchable: false,
+          dataType: "enum",
+          filterOptions: ["platinum", "gold", "silver", "bronze"],
+          filterLabels: loyaltyTierLabels,
+          filterOptionMeta: loyaltyTierFilterMeta,
+          preserveFilterOptionOrder: true,
+          minWidth: 140,
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex shrink-0 gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={(event) => {
+                event.stopPropagation()
+                openViewGuest(row.original)
+              }}
+            >
+              <Eye className="h-4 w-4" />
+              <span className="sr-only">Швидкий перегляд</span>
+            </Button>
+            {canManage && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    openEditGuest(row.original)
+                  }}
+                >
+                  <Edit2 className="h-4 w-4" />
+                  <span className="sr-only">Редагувати</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  disabled={saving}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (row.original.is_active === false) {
+                      archiveGuest(row.original, true)
+                    } else {
+                      setArchiveConfirmGuest(row.original)
+                    }
+                  }}
+                >
+                  {row.original.is_active === false ? <RotateCcw className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                  <span className="sr-only">{row.original.is_active === false ? "Повернути з архіву" : "Архівувати"}</span>
+                </Button>
+              </>
+            )}
+          </div>
+        ),
+        meta: {
+          sortable: false,
+          filterable: false,
+          filterType: false,
+          searchable: false,
+          dataType: "text",
+          minWidth: 120,
+        },
+      },
+    ],
+    [canManage, saving],
+  )
 
   const openNewGuest = () => {
     setEditGuest(null)
-    setForm({
-      first_name: "", last_name: "", email: "", phone: "", date_of_birth: "",
-      passport_number: "", id_number: "", nationality: "", country: "", city: "",
-      address: "", postal_code: "", company: "", loyalty_tier: "", preferences: "",
-      notes: "", is_vip: false,
-    })
+    setForm(emptyGuestForm)
+    setInitialForm(emptyGuestForm)
+    setFormErrors({})
+    setTouchedFields({})
+    setSubmitAttempted(false)
     setEditOpen(true)
   }
 
   const openEditGuest = (g: Guest) => {
     setEditGuest(g)
-    setForm({
+    const nextForm = {
       first_name: g.first_name || "",
       last_name: g.last_name || "",
       email: g.email || "",
@@ -184,7 +688,12 @@ export function GuestsClient({ profile }: { profile: Profile }) {
       preferences: g.preferences || "",
       notes: g.notes || "",
       is_vip: g.is_vip,
-    })
+    }
+    setForm(nextForm)
+    setInitialForm(nextForm)
+    setFormErrors({})
+    setTouchedFields({})
+    setSubmitAttempted(false)
     setEditOpen(true)
   }
 
@@ -203,42 +712,98 @@ export function GuestsClient({ profile }: { profile: Profile }) {
   }
 
   const handleSave = async () => {
-    if (!form.first_name.trim() || !form.last_name.trim()) return
+    setSubmitAttempted(true)
+    if (hasValidationErrors) {
+      setFormErrors(validationErrors)
+      return
+    }
+
     setSaving(true)
     const supabase = createClient()
     const payload = {
-      first_name: form.first_name.trim(),
-      last_name: form.last_name.trim(),
-      email: form.email || null,
-      phone: form.phone || null,
-      date_of_birth: form.date_of_birth || null,
-      passport_number: form.passport_number || null,
-      id_number: form.id_number || null,
-      nationality: form.nationality || null,
-      country: form.country || null,
-      city: form.city || null,
-      address: form.address || null,
-      postal_code: form.postal_code || null,
-      company: form.company || null,
-      loyalty_tier: form.loyalty_tier || null,
-      preferences: form.preferences || null,
-      notes: form.notes || null,
-      is_vip: form.is_vip,
+      first_name: normalizedForm.first_name,
+      last_name: normalizedForm.last_name,
+      email: normalizedForm.email || null,
+      phone: normalizedForm.phone || null,
+      date_of_birth: normalizedForm.date_of_birth || null,
+      passport_number: normalizedForm.passport_number || null,
+      id_number: normalizedForm.id_number || null,
+      nationality: normalizedForm.nationality || null,
+      country: normalizedForm.country || null,
+      city: normalizedForm.city || null,
+      address: normalizedForm.address || null,
+      postal_code: normalizedForm.postal_code || null,
+      company: normalizedForm.company || null,
+      loyalty_tier: normalizedForm.loyalty_tier || null,
+      preferences: normalizedForm.preferences || null,
+      notes: normalizedForm.notes || null,
+      is_vip: normalizedForm.is_vip,
+      is_active: editGuest?.is_active === false ? false : true,
       updated_at: new Date().toISOString(),
     }
 
-    if (editGuest) {
-      await supabase.from("guests").update(payload).eq("id", editGuest.id)
-    } else {
-      await supabase.from("guests").insert(payload)
+    try {
+      const { error } = editGuest
+        ? await supabase.from("guests").update(payload).eq("id", editGuest.id)
+        : await supabase.from("guests").insert(payload)
+
+      if (error) {
+        setFormErrors({ form: getGuestErrorMessage(error.message) })
+        return
+      }
+
+      setFormErrors({})
+      setEditOpen(false)
+      mutate()
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setEditOpen(false)
-    mutate()
   }
 
-  const updateField = (field: string, value: string | boolean) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+  const updateField = (field: keyof GuestForm, value: string | boolean) => {
+    const nextValue =
+      typeof value === "string"
+        ? field === "first_name" || field === "last_name" || field === "nationality" || field === "city" || field === "country"
+          ? formatPersonName(value)
+          : field === "email"
+            ? formatEmail(value)
+            : field === "phone"
+              ? formatUaPhone(value)
+              : field === "passport_number"
+                ? formatUkrainianPassportNumber(value)
+                : field === "id_number"
+                  ? formatUkrainianIdCardNumber(value)
+                : value
+        : value
+
+    setForm((prev) => ({ ...prev, [field]: nextValue }))
+    setFormErrors((prev) => {
+      if (!prev[field] && !prev.form) return prev
+      const next = { ...prev }
+      delete next[field]
+      delete next.form
+      return next
+    })
+  }
+
+  const archiveGuest = async (guest: Guest, nextActiveState: boolean) => {
+    setSaving(true)
+    setFormErrors({})
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("guests")
+      .update({ is_active: nextActiveState, updated_at: new Date().toISOString() })
+      .eq("id", guest.id)
+
+    if (error) {
+      setFormErrors({ form: getGuestErrorMessage(error.message) })
+    } else {
+      mutate()
+      if (viewGuest?.id === guest.id) {
+        setViewGuest({ ...guest, is_active: nextActiveState })
+      }
+    }
+    setSaving(false)
   }
 
   return (
@@ -246,26 +811,33 @@ export function GuestsClient({ profile }: { profile: Profile }) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-balance">Guest Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-balance">Управління гостями</h1>
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium">{totalGuests}</span> total guests
+            <span className="font-medium">{pluralizeGuests(totalGuests)}</span> всього гостів
             {vipCount > 0 && (
               <>
                 <span className="mx-1.5 text-border">|</span>
                 <span className="font-medium text-amber-600">{vipCount} VIP</span>
               </>
             )}
+            {archivedGuests.length > 0 && (
+              <>
+                <span className="mx-1.5 text-border">|</span>
+                <span className="font-medium text-muted-foreground">{archivedGuests.length} в архіві</span>
+              </>
+            )}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {archivedGuests.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setShowArchived((current) => !current)}>
+              {showArchived ? "Показати активних" : "Показати архів"}
+            </Button>
+          )}
           {canManage && (
             <Button size="sm" onClick={openNewGuest}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Guest
+              Додати гостя
             </Button>
           )}
         </div>
@@ -280,7 +852,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalGuests}</p>
-              <p className="text-xs font-medium text-muted-foreground">Total Guests</p>
+              <p className="text-xs font-medium text-muted-foreground">Усього гостей</p>
             </div>
           </CardContent>
         </Card>
@@ -291,7 +863,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-amber-700">{vipCount}</p>
-              <p className="text-xs font-medium text-amber-600">VIP Guests</p>
+              <p className="text-xs font-medium text-amber-600">VIP гості</p>
             </div>
           </CardContent>
         </Card>
@@ -302,185 +874,125 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-emerald-700">
-                {new Set(allGuests.map((g) => g.country).filter(Boolean)).size}
+                {new Set(activeGuests.map((g) => g.country).filter(Boolean)).size}
               </p>
-              <p className="text-xs font-medium text-emerald-600">Countries</p>
+              <p className="text-xs font-medium text-emerald-600">Країни</p>
             </div>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-              <Building2 className="h-5 w-5 text-blue-600" />
+              <Calendar className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-blue-700">
-                {new Set(allGuests.map((g) => g.company).filter(Boolean)).size}
+                {birthdaysThisMonth}
               </p>
-              <p className="text-xs font-medium text-blue-600">Companies</p>
+              <p className="text-xs font-medium text-blue-600">Дні народження цього місяця</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, email, phone, passport, company..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={vipFilter} onValueChange={setVipFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Guests</SelectItem>
-            <SelectItem value="vip">VIP Only</SelectItem>
-            <SelectItem value="regular">Regular</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={loyaltyFilter} onValueChange={setLoyaltyFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="platinum">Platinum</SelectItem>
-            <SelectItem value="gold">Gold</SelectItem>
-            <SelectItem value="silver">Silver</SelectItem>
-            <SelectItem value="bronze">Bronze</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Guests List */}
-      <div className="flex flex-col gap-2">
-        {filteredGuests.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <Users className="mb-3 h-10 w-10" />
-            <p>No guests found</p>
-            {search && <p className="text-xs">Try adjusting your search filters</p>}
-          </div>
-        )}
-        {filteredGuests.map((guest) => (
-          <Card
-            key={guest.id}
-            className={`transition-colors hover:bg-muted/30 ${guest.is_vip ? "border-l-4 border-l-amber-400" : ""}`}
-          >
-            <CardContent className="flex items-center justify-between gap-4 p-4">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                  guest.is_vip ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
-                }`}>
-                  {guest.first_name[0]}{guest.last_name[0]}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold">
-                      {guest.first_name} {guest.last_name}
-                    </span>
-                    {guest.is_vip && (
-                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] px-1.5 py-0">
-                        <Star className="mr-0.5 h-2.5 w-2.5" />
-                        VIP
-                      </Badge>
-                    )}
-                    {guest.loyalty_tier && (
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${loyaltyColors[guest.loyalty_tier] || ""}`}>
-                        {guest.loyalty_tier}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    {guest.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" /> {guest.email}
-                      </span>
-                    )}
-                    {guest.phone && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> {guest.phone}
-                      </span>
-                    )}
-                    {guest.country && (
-                      <span className="flex items-center gap-1">
-                        <Globe className="h-3 w-3" /> {guest.country}
-                      </span>
-                    )}
-                    {guest.company && (
-                      <span className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3" /> {guest.company}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openViewGuest(guest)}>
-                  <Eye className="h-4 w-4" />
-                  <span className="sr-only">View guest</span>
-                </Button>
-                {canManage && (
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditGuest(guest)}>
-                    <Edit2 className="h-4 w-4" />
-                    <span className="sr-only">Edit guest</span>
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <DataTable
+        columns={guestColumns}
+        data={visibleGuests}
+        searchPlaceholder="Пошук за гостем, контактами або документами..."
+        enableMultiSort
+        onRowClick={(row) => openViewGuest(row.original)}
+      />
 
       {/* New / Edit Guest Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editGuest ? "Edit Guest" : "Add New Guest"}</DialogTitle>
+            <DialogTitle>{editGuest ? "Редагувати гостя" : "Додати нового гостя"}</DialogTitle>
             <DialogDescription>
-              {editGuest ? "Update guest information." : "Enter the guest details below."}
+              {editGuest ? "Оновіть інформацію про гостя." : "Введіть дані гостя нижче."}
             </DialogDescription>
           </DialogHeader>
+          {formErrors.form && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {formErrors.form}
+              </AlertDescription>
+            </Alert>
+          )}
           <Tabs defaultValue="personal" className="w-full">
             <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="personal">Personal</TabsTrigger>
-              <TabsTrigger value="contact">Contact & Address</TabsTrigger>
-              <TabsTrigger value="hotel">Hotel Info</TabsTrigger>
+              <TabsTrigger value="personal">Особисте</TabsTrigger>
+              <TabsTrigger value="contact">Контакти та адреса</TabsTrigger>
+              <TabsTrigger value="hotel">Інфо готелю</TabsTrigger>
             </TabsList>
             <TabsContent value="personal" className="flex flex-col gap-4 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>First Name *</Label>
-                  <Input value={form.first_name} onChange={(e) => updateField("first_name", e.target.value)} placeholder="John" />
+                  <Label>Імʼя *</Label>
+                  <Input
+                    value={form.first_name}
+                    onChange={(e) => updateField("first_name", e.target.value)}
+                    onBlur={() => markTouched("first_name")}
+                    placeholder="Іван"
+                    aria-invalid={Boolean(fieldError("first_name"))}
+                  />
+                  {fieldError("first_name") && <p className="text-xs text-destructive">{fieldError("first_name")}</p>}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Last Name *</Label>
-                  <Input value={form.last_name} onChange={(e) => updateField("last_name", e.target.value)} placeholder="Smith" />
+                  <Label>Прізвище *</Label>
+                  <Input
+                    value={form.last_name}
+                    onChange={(e) => updateField("last_name", e.target.value)}
+                    onBlur={() => markTouched("last_name")}
+                    placeholder="Петренко"
+                    aria-invalid={Boolean(fieldError("last_name"))}
+                  />
+                  {fieldError("last_name") && <p className="text-xs text-destructive">{fieldError("last_name")}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Date of Birth</Label>
-                  <Input type="date" value={form.date_of_birth} onChange={(e) => updateField("date_of_birth", e.target.value)} />
+                  <Label>Дата народження</Label>
+                  <Input
+                    type="date"
+                    value={form.date_of_birth}
+                    onChange={(e) => updateField("date_of_birth", e.target.value)}
+                    onBlur={() => markTouched("date_of_birth")}
+                    aria-invalid={Boolean(fieldError("date_of_birth"))}
+                  />
+                  {fieldError("date_of_birth") && <p className="text-xs text-destructive">{fieldError("date_of_birth")}</p>}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Nationality</Label>
-                  <Input value={form.nationality} onChange={(e) => updateField("nationality", e.target.value)} placeholder="e.g. American" />
+                  <Label>Національність</Label>
+                  <Input value={form.nationality} onChange={(e) => updateField("nationality", e.target.value)} placeholder="наприклад, українець" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Passport Number</Label>
-                  <Input value={form.passport_number} onChange={(e) => updateField("passport_number", e.target.value)} />
+                  <Label>Номер паспорта</Label>
+                  <Input
+                    value={form.passport_number}
+                    onChange={(e) => updateField("passport_number", e.target.value)}
+                    onBlur={() => markTouched("passport_number")}
+                    maxLength={8}
+                    placeholder="КК123456"
+                    aria-invalid={Boolean(fieldError("passport_number"))}
+                  />
+                  {fieldError("passport_number") && <p className="text-xs text-destructive">{fieldError("passport_number")}</p>}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>ID Number</Label>
-                  <Input value={form.id_number} onChange={(e) => updateField("id_number", e.target.value)} />
+                  <Label>Номер ID-картки</Label>
+                  <Input
+                    value={form.id_number}
+                    onChange={(e) => updateField("id_number", e.target.value)}
+                    onBlur={() => markTouched("id_number")}
+                    inputMode="numeric"
+                    maxLength={9}
+                    placeholder="123456789"
+                    aria-invalid={Boolean(fieldError("id_number"))}
+                  />
+                  {fieldError("id_number") && <p className="text-xs text-destructive">{fieldError("id_number")}</p>}
                 </div>
               </div>
             </TabsContent>
@@ -488,82 +1000,115 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
                   <Label>Email</Label>
-                  <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="john@example.com" />
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => updateField("email", e.target.value)}
+                    onBlur={() => markTouched("email")}
+                    placeholder="john@example.com"
+                    aria-invalid={Boolean(fieldError("email"))}
+                  />
+                  {fieldError("email") && <p className="text-xs text-destructive">{fieldError("email")}</p>}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+1 555 123 4567" />
+                  <Label>Телефон *</Label>
+                  <Input
+                    value={form.phone}
+                    onFocus={() => {
+                      if (!form.phone) updateField("phone", `${UA_PHONE_PREFIX} (`)
+                    }}
+                    onBlur={() => {
+                      markTouched("phone")
+                      if (form.phone && getUaPhoneNationalDigits(form.phone).length === 0) updateField("phone", "")
+                    }}
+                    onChange={(e) => updateField("phone", e.target.value)}
+                    placeholder="+380 (##) ###-##-##"
+                    maxLength={19}
+                    aria-invalid={Boolean(fieldError("phone"))}
+                  />
+                  {fieldError("phone") && <p className="text-xs text-destructive">{fieldError("phone")}</p>}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Address</Label>
-                <Input value={form.address} onChange={(e) => updateField("address", e.target.value)} placeholder="123 Main St" />
+                <Label>Адреса</Label>
+                <Input value={form.address} onChange={(e) => updateField("address", e.target.value)} placeholder="вул. Хрещатик, 1" />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>City</Label>
+                  <Label>Місто</Label>
                   <Input value={form.city} onChange={(e) => updateField("city", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Country</Label>
+                  <Label>Країна</Label>
                   <Input value={form.country} onChange={(e) => updateField("country", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Postal Code</Label>
-                  <Input value={form.postal_code} onChange={(e) => updateField("postal_code", e.target.value)} />
+                  <Label>Поштовий індекс</Label>
+                  <Input
+                    value={form.postal_code}
+                    onChange={(e) => updateField("postal_code", e.target.value)}
+                    onBlur={() => markTouched("postal_code")}
+                    aria-invalid={Boolean(fieldError("postal_code"))}
+                  />
+                  {fieldError("postal_code") && <p className="text-xs text-destructive">{fieldError("postal_code")}</p>}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Company</Label>
-                <Input value={form.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Company name" />
+                <Label>Компанія</Label>
+                <Input value={form.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Назва компанії" />
               </div>
             </TabsContent>
             <TabsContent value="hotel" className="flex flex-col gap-4 pt-4">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
-                  <Label className="text-base font-medium">VIP Guest</Label>
-                  <p className="text-sm text-muted-foreground">Mark this guest as a VIP for special treatment</p>
+                  <Label className="text-base font-medium">VIP гість</Label>
+                  <p className="text-sm text-muted-foreground">Позначте гостя як VIP для особливого обслуговування</p>
                 </div>
                 <Switch checked={form.is_vip} onCheckedChange={(v) => updateField("is_vip", v)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Loyalty Tier</Label>
+                <Label>Рівень лояльності</Label>
                 <Select value={form.loyalty_tier || "none"} onValueChange={(v) => updateField("loyalty_tier", v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="No tier" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Без рівня" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Tier</SelectItem>
-                    <SelectItem value="bronze">Bronze</SelectItem>
-                    <SelectItem value="silver">Silver</SelectItem>
-                    <SelectItem value="gold">Gold</SelectItem>
-                    <SelectItem value="platinum">Platinum</SelectItem>
+                    <SelectItem value="none">Без рівня</SelectItem>
+                    <SelectItem value="bronze">Бронзовий</SelectItem>
+                    <SelectItem value="silver">Срібний</SelectItem>
+                    <SelectItem value="gold">Золотий</SelectItem>
+                    <SelectItem value="platinum">Платиновий</SelectItem>
                   </SelectContent>
                 </Select>
+                {fieldError("loyalty_tier") && <p className="text-xs text-destructive">{fieldError("loyalty_tier")}</p>}
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Preferences</Label>
+                <Label>Побажання</Label>
                 <Textarea
                   value={form.preferences}
                   onChange={(e) => updateField("preferences", e.target.value)}
-                  placeholder="Preferred room type, pillow preference, dietary restrictions..."
+                  onBlur={() => markTouched("preferences")}
+                  placeholder="Бажаний тип номера, подушка, дієтичні обмеження..."
                   rows={2}
                 />
+                {fieldError("preferences") && <p className="text-xs text-destructive">{fieldError("preferences")}</p>}
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Internal Notes</Label>
+                <Label>Внутрішні нотатки</Label>
                 <Textarea
                   value={form.notes}
                   onChange={(e) => updateField("notes", e.target.value)}
-                  placeholder="Staff-only notes about the guest..."
+                  onBlur={() => markTouched("notes")}
+                  placeholder="Нотатки для персоналу про гостя..."
                   rows={2}
                 />
+                {fieldError("notes") && <p className="text-xs text-destructive">{fieldError("notes")}</p>}
               </div>
             </TabsContent>
           </Tabs>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!form.first_name.trim() || !form.last_name.trim() || saving}>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Скасувати</Button>
+            <Button onClick={handleSave} disabled={!hasChanges || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editGuest ? "Save Changes" : "Add Guest"}
+              {editGuest ? "Зберегти зміни" : "Додати гостя"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -576,6 +1121,9 @@ export function GuestsClient({ profile }: { profile: Profile }) {
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
               {viewGuest?.first_name} {viewGuest?.last_name}
+              {viewGuest?.is_active === false && (
+                <Badge variant="secondary">Архів</Badge>
+              )}
               {viewGuest?.is_vip && (
                 <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
                   <Star className="mr-0.5 h-3 w-3" /> VIP
@@ -585,6 +1133,34 @@ export function GuestsClient({ profile }: { profile: Profile }) {
           </DialogHeader>
           {viewGuest && (
             <div className="flex flex-col gap-4">
+              {canManage && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => {
+                      if (viewGuest.is_active === false) {
+                        archiveGuest(viewGuest, true)
+                      } else {
+                        setArchiveConfirmGuest(viewGuest)
+                      }
+                    }}
+                  >
+                    {viewGuest.is_active === false ? (
+                      <>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Повернути з архіву
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="mr-2 h-4 w-4" />
+                        Архівувати гостя
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {viewGuest.email && (
                   <div className="flex items-center gap-2">
@@ -613,13 +1189,19 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                 {viewGuest.date_of_birth && (
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>{new Date(viewGuest.date_of_birth).toLocaleDateString()}</span>
+                    <span>{formatDate(viewGuest.date_of_birth)}</span>
                   </div>
                 )}
                 {viewGuest.passport_number && (
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
-                    <span>Passport: {viewGuest.passport_number}</span>
+                    <span>Номер паспорта: {viewGuest.passport_number}</span>
+                  </div>
+                )}
+                {viewGuest.id_number && (
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    <span>ID-картка: {viewGuest.id_number}</span>
                   </div>
                 )}
               </div>
@@ -642,7 +1224,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                   <div className="flex items-center gap-2">
                     <Crown className="h-4 w-4 text-amber-600" />
                     <Badge variant="outline" className={`capitalize ${loyaltyColors[viewGuest.loyalty_tier] || ""}`}>
-                      {viewGuest.loyalty_tier} Member
+                      {formatLoyaltyTier(viewGuest.loyalty_tier)}
                     </Badge>
                   </div>
                 </>
@@ -652,7 +1234,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                 <>
                   <Separator />
                   <div>
-                    <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Preferences</p>
+                    <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Побажання</p>
                     <p className="text-sm">{viewGuest.preferences}</p>
                   </div>
                 </>
@@ -660,7 +1242,7 @@ export function GuestsClient({ profile }: { profile: Profile }) {
 
               {viewGuest.notes && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Staff Notes</p>
+                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Нотатки для персоналу</p>
                   <p className="text-sm text-muted-foreground italic">{viewGuest.notes}</p>
                 </div>
               )}
@@ -669,14 +1251,14 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold">Reservation History</p>
+                  <p className="text-sm font-semibold">Історія бронювань</p>
                 </div>
                 {loadingReservations ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : guestReservations.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No reservations found</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">Бронювань не знайдено</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {guestReservations.map((res) => (
@@ -684,18 +1266,17 @@ export function GuestsClient({ profile }: { profile: Profile }) {
                         <div>
                           <span className="font-mono text-xs text-muted-foreground">{res.reservation_number}</span>
                           <p className="font-medium">
-                            {new Date(res.check_in_date).toLocaleDateString()} - {new Date(res.check_out_date).toLocaleDateString()}
+                            {formatDate(res.check_in_date)} - {formatDate(res.check_out_date)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {res.adults} adult{res.adults !== 1 ? "s" : ""}
-                            {res.children > 0 && `, ${res.children} child${res.children !== 1 ? "ren" : ""}`}
+                            {pluralGuests(res.adults, res.children)}
                           </p>
                         </div>
                         <div className="text-right">
                           <Badge variant={res.status === "checked_out" ? "default" : res.status === "checked_in" ? "secondary" : "outline"} className="text-[10px]">
-                            {res.status.replace(/_/g, " ")}
+                            {formatReservationStatus(res.status)}
                           </Badge>
-                          <p className="mt-0.5 font-semibold">${res.total_amount.toFixed(2)}</p>
+                          <p className="mt-0.5 font-semibold">{formatCurrency(res.total_amount)}</p>
                         </div>
                       </div>
                     ))}
@@ -704,6 +1285,35 @@ export function GuestsClient({ profile }: { profile: Profile }) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(archiveConfirmGuest)} onOpenChange={(open) => !open && setArchiveConfirmGuest(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Архівувати гостя?</DialogTitle>
+            <DialogDescription>
+              Гість «{archiveConfirmGuest?.first_name} {archiveConfirmGuest?.last_name}» буде прихований з активного
+              списку. Історія бронювань залишиться доступною.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveConfirmGuest(null)}>
+              Скасувати
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={saving || !archiveConfirmGuest}
+              onClick={async () => {
+                if (!archiveConfirmGuest) return
+                await archiveGuest(archiveConfirmGuest, false)
+                setArchiveConfirmGuest(null)
+              }}
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Архівувати
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

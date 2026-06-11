@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create enum types
 CREATE TYPE user_role AS ENUM (
-  'system_admin',
+  'system_administrator',
   'general_manager',
   'front_desk_manager',
   'front_desk_agent',
@@ -61,7 +61,7 @@ CREATE TYPE maintenance_status AS ENUM (
 
 CREATE TYPE maintenance_priority AS ENUM (
   'low',
-  'medium',
+  'normal',
   'high',
   'urgent'
 );
@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.guests (
   date_of_birth DATE,
   notes TEXT,
   is_vip BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -209,7 +210,7 @@ CREATE TABLE IF NOT EXISTS public.housekeeping_tasks (
   room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
   assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   task_type TEXT NOT NULL, -- Standard, Deep Clean, Turndown, etc.
-  priority TEXT DEFAULT 'medium',
+  priority TEXT DEFAULT 'normal',
   status TEXT NOT NULL DEFAULT 'pending',
   notes TEXT,
   assigned_at TIMESTAMPTZ,
@@ -223,7 +224,7 @@ CREATE TABLE IF NOT EXISTS public.maintenance_requests (
   room_id UUID REFERENCES public.rooms(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   description TEXT NOT NULL,
-  priority maintenance_priority NOT NULL DEFAULT 'medium',
+  priority maintenance_priority NOT NULL DEFAULT 'normal',
   status maintenance_status NOT NULL DEFAULT 'pending',
   assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   reported_by UUID REFERENCES public.profiles(id),

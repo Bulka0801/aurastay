@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
-import { DollarSign, TrendingUp, CreditCard, AlertCircle, FileText } from "lucide-react"
-import Link from "next/link"
+import { CreditCard, AlertCircle, FileText, Wallet } from "lucide-react"
 import type { Profile } from "@/lib/types"
+import { formatCurrency } from "@/lib/localization"
+import { signedSettledPaymentAmount } from "@/lib/rules/payments"
+import { DashboardMetricCard, DashboardPageHeader, DashboardQuickActions } from "./dashboard-primitives"
 
 interface AccountantDashboardProps {
   profile: Profile
@@ -16,10 +17,13 @@ export async function AccountantDashboard({ profile }: AccountantDashboardProps)
   const today = new Date().toISOString().split("T")[0]
   const { data: todayPayments } = await supabase
     .from("payments")
-    .select("amount")
+    .select("amount, payment_status")
     .gte("payment_date", `${today}T00:00:00`)
 
-  const todayRevenue = todayPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
+  const todayRevenue =
+    todayPayments?.reduce((sum, payment) => sum + signedSettledPaymentAmount(payment), 0) || 0
+  const todaySettledPaymentCount =
+    todayPayments?.filter((payment) => signedSettledPaymentAmount(payment) !== 0).length || 0
 
   // Get pending folios
   const { data: pendingFolios } = await supabase.from("folios").select("balance").in("status", ["pending", "partial"])
@@ -41,72 +45,29 @@ export async function AccountantDashboard({ profile }: AccountantDashboardProps)
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Financial Dashboard</h1>
-          <p className="text-slate-600">
-            Welcome back, {profile.first_name}! Monitor financial operations and transactions
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link href="/dashboard/finance/reports">
-              <FileText className="mr-2 h-4 w-4" />
-              Reports
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <DashboardPageHeader
+        title="Фінансовий дашборд"
+        description={`Контроль оплат, відкритих рахунків і останніх транзакцій, ${profile.first_name}.`}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${todayRevenue.toFixed(2)}</div>
-            <p className="text-xs text-slate-600">Collected today</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${pendingAmount.toFixed(2)}</div>
-            <p className="text-xs text-slate-600">Outstanding balance</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Month Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$0.00</div>
-            <p className="text-xs text-slate-600">This month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
-            <CreditCard className="h-4 w-4 text-slate-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todayPayments?.length || 0}</div>
-            <p className="text-xs text-slate-600">Today's count</p>
-          </CardContent>
-        </Card>
+        <DashboardMetricCard title="Дохід за сьогодні" value={formatCurrency(todayRevenue)} description="Отримано сьогодні" icon={Wallet} tone="emerald" href="/dashboard/finance" />
+        <DashboardMetricCard title="Незавершені оплати" value={formatCurrency(pendingAmount)} description="Несплачений залишок" icon={AlertCircle} tone="amber" href="/dashboard/finance?tab=folios" />
+        <DashboardMetricCard title="Транзакції" value={todaySettledPaymentCount} description="Кількість оплат за сьогодні" icon={CreditCard} tone="slate" href="/dashboard/finance" />
+        <DashboardMetricCard title="Фінансові звіти" value="Звіти" description="Експорт і аналітика" icon={FileText} tone="blue" href="/dashboard/reports" />
       </div>
+
+      <DashboardQuickActions
+        actions={[
+          { label: "Відкрити фінанси", href: "/dashboard/finance", icon: Wallet },
+          { label: "Відкриті рахунки", href: "/dashboard/finance?tab=folios", icon: AlertCircle },
+          { label: "Звіти", href: "/dashboard/reports", icon: FileText },
+        ]}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Payments</CardTitle>
+          <CardTitle>Останні платежі</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -118,17 +79,17 @@ export async function AccountantDashboard({ profile }: AccountantDashboardProps)
                       {payment.folio?.guest?.first_name} {payment.folio?.guest?.last_name}
                     </p>
                     <p className="text-sm text-slate-600">
-                      Folio: {payment.folio?.folio_number} • {payment.payment_method}
+                      Рахунок: {payment.folio?.folio_number} • {payment.payment_method}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">${Number(payment.amount).toFixed(2)}</p>
-                    <p className="text-xs text-slate-600">{new Date(payment.payment_date).toLocaleDateString()}</p>
+                    <p className="font-semibold text-green-600">{formatCurrency(Number(payment.amount))}</p>
+                    <p className="text-xs text-slate-600">{new Date(payment.payment_date).toLocaleDateString("uk-UA")}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-500">No recent payments</p>
+              <p className="text-sm text-slate-500">Останніх платежів немає</p>
             )}
           </div>
         </CardContent>

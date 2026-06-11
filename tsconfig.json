@@ -6,6 +6,7 @@
       "esnext"
     ],
     "allowJs": true,
+    "typeRoots": ["./node_modules/@types", "./types"],
     "target": "ES6",
     "skipLibCheck": true,
     "strict": true,

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, UserCheck } from "lucide-react"
+import { formatReservationStatus, pluralGuests } from "@/lib/localization"
 
 interface Arrival {
   id: string
@@ -48,7 +49,7 @@ export function ArrivalsTab({ arrivals }: { arrivals: Arrival[] }) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name or reservation number..."
+            placeholder="Пошук за ім’ям або номером бронювання..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -58,7 +59,7 @@ export function ArrivalsTab({ arrivals }: { arrivals: Arrival[] }) {
 
       {filteredArrivals.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No arrivals scheduled for today</p>
+          <p className="text-muted-foreground">На сьогодні заїздів не заплановано</p>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -71,21 +72,18 @@ export function ArrivalsTab({ arrivals }: { arrivals: Arrival[] }) {
                       {arrival.guests.first_name} {arrival.guests.last_name}
                     </h3>
                     <Badge variant={arrival.status === "checked_in" ? "default" : "secondary"}>
-                      {arrival.status === "checked_in" ? "Checked In" : "Pending"}
+                      {formatReservationStatus(arrival.status)}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{arrival.reservation_number}</p>
                   <div className="flex gap-4 text-sm">
                     <span>
-                      Room: {arrival.reservation_rooms[0]?.rooms.room_number || "Not Assigned"} (
-                      {arrival.reservation_rooms[0]?.rooms.room_type.name || "N/A"})
+                      Номер: {arrival.reservation_rooms[0]?.rooms.room_number || "Не призначено"} (
+                      {arrival.reservation_rooms[0]?.rooms.room_type.name || "—"})
                     </span>
+                    <span>Гості: {pluralGuests(arrival.adults, arrival.children)}</span>
                     <span>
-                      Guests: {arrival.adults} Adult{arrival.adults > 1 ? "s" : ""}
-                      {arrival.children > 0 && `, ${arrival.children} Child${arrival.children > 1 ? "ren" : ""}`}
-                    </span>
-                    <span>
-                      Nights:{" "}
+                      Ночей:{" "}
                       {Math.ceil(
                         (new Date(arrival.check_out_date).getTime() - new Date(arrival.check_in_date).getTime()) /
                           (1000 * 60 * 60 * 24),
@@ -98,12 +96,12 @@ export function ArrivalsTab({ arrivals }: { arrivals: Arrival[] }) {
                     <Link href={`/dashboard/front-desk/check-in/${arrival.id}`}>
                       <Button>
                         <UserCheck className="mr-2 h-4 w-4" />
-                        Check In
+                        Заселити
                       </Button>
                     </Link>
                   )}
                   <Link href={`/dashboard/reservations/${arrival.id}`}>
-                    <Button variant="outline">View Details</Button>
+                    <Button variant="outline">Деталі</Button>
                   </Link>
                 </div>
               </div>

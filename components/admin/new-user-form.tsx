@@ -1,32 +1,51 @@
 "use client"
-
 import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createUserAction } from "@/app/dashboard/admin/users/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import {
+  UA_PHONE_PREFIX,
+  formatEmail,
+  formatPersonName,
+  formatUaPhone,
+  generateStrongPassword,
+  getUaPhoneNationalDigits,
+  isValidEmail,
+  isValidOptionalUaPhone,
+  isValidPersonName,
+  validatePassword,
+} from "@/lib/validation"
 
 const roles = [
-  { value: "system_admin", label: "System Administrator" },
-  { value: "general_manager", label: "General Manager" },
-  { value: "front_desk_manager", label: "Front Desk Manager" },
-  { value: "front_desk_agent", label: "Front Desk Agent" },
-  { value: "reservations_manager", label: "Reservations Manager" },
-  { value: "housekeeping_supervisor", label: "Housekeeping Supervisor" },
-  { value: "housekeeping_staff", label: "Housekeeping Staff" },
-  { value: "revenue_manager", label: "Revenue Manager" },
-  { value: "sales_manager", label: "Sales Manager" },
-  { value: "accountant", label: "Accountant" },
-  { value: "maintenance_manager", label: "Maintenance Manager" },
-  { value: "maintenance_staff", label: "Maintenance Staff" },
-  { value: "fb_manager", label: "F&B Manager" },
+  { value: "system_administrator", label: "Системний адміністратор" },
+  { value: "general_manager", label: "Генеральний менеджер" },
+  { value: "front_desk_manager", label: "Менеджер рецепції" },
+  { value: "front_desk_agent", label: "Адміністратор рецепції" },
+  { value: "reservations_manager", label: "Менеджер бронювань" },
+  { value: "housekeeping_supervisor", label: "Супервайзер господарської служби" },
+  { value: "housekeeping_staff", label: "Покоївка" },
+  { value: "revenue_manager", label: "Менеджер доходу" },
+  { value: "sales_manager", label: "Менеджер продажів" },
+  { value: "accountant", label: "Бухгалтер" },
+  { value: "maintenance_manager", label: "Керівник технічної служби" },
+  { value: "maintenance_staff", label: "Технік" },
+  { value: "fb_manager", label: "Менеджер ресторану" },
 ]
+
+function getCreateUserErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return "Не вдалося створити користувача. Спробуйте ще раз."
+}
 
 export function NewUserForm() {
   const router = useRouter()
@@ -39,52 +58,72 @@ export function NewUserForm() {
     email: "",
     phone: "",
     role: "front_desk_agent",
-    employeeId: "",
     department: "",
     password: "",
     isActive: true,
   })
+  const firstNameIsInvalid = Boolean(formData.firstName && !isValidPersonName(formData.firstName))
+  const lastNameIsInvalid = Boolean(formData.lastName && !isValidPersonName(formData.lastName))
+  const emailIsInvalid = Boolean(formData.email && !isValidEmail(formData.email))
+  const phoneDigitsCount = getUaPhoneNationalDigits(formData.phone).length
+  const phoneIsInvalid = Boolean(phoneDigitsCount > 0 && !isValidOptionalUaPhone(formData.phone))
+  const passwordValidation = validatePassword(formData.password)
 
   const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%"
-    let password = ""
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    setFormData({ ...formData, password })
+    setFormData({ ...formData, password: generateStrongPassword() })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
-    try {
-      const supabase = createClient()
+    const trimmedFirstName = formData.firstName.trim()
+    const trimmedLastName = formData.lastName.trim()
+    const trimmedEmail = formData.email.trim()
+    const trimmedPhone = formData.phone.trim()
 
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+    if (!isValidPersonName(trimmedFirstName) || !isValidPersonName(trimmedLastName)) {
+      setError("Імʼя та прізвище мають містити мінімум 2 літери без цифр і спецсимволів.")
+      return
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Введіть коректну електронну пошту.")
+      return
+    }
+
+    if (!isValidOptionalUaPhone(trimmedPhone)) {
+      setError("Телефон має бути у форматі +380 (##) ###-##-##.")
+      return
+    }
+
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.errors.join(" "))
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const result = await createUserAction({
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        role: formData.role,
+        department: formData.department,
         password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            role: formData.role,
-            employee_id: formData.employeeId,
-            department: formData.department,
-          },
-          emailRedirectTo: `${window.location.origin}/login`,
-        },
+        isActive: formData.isActive,
       })
 
-      if (authError) throw authError
+      if (!result.success) {
+        throw new Error(result.error ?? "Не вдалося створити користувача. Спробуйте ще раз.")
+      }
 
       router.push("/dashboard/admin/users")
       router.refresh()
     } catch (error) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(getCreateUserErrorMessage(error))
     } finally {
       setIsLoading(false)
     }
@@ -94,60 +133,100 @@ export function NewUserForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name *</Label>
+          <Label htmlFor="firstName">Ім’я користувача *</Label>
           <Input
             id="firstName"
             value={formData.firstName}
-            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, firstName: formatPersonName(e.target.value) })}
+            maxLength={50}
+            aria-invalid={firstNameIsInvalid}
             required
           />
+          {firstNameIsInvalid ? (
+            <p className="text-xs text-destructive">Мінімум 2 літери, без цифр і спецсимволів.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Можна українські або англійські літери, дефіс і апостроф.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name *</Label>
+          <Label htmlFor="lastName">Прізвище *</Label>
           <Input
             id="lastName"
             value={formData.lastName}
-            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, lastName: formatPersonName(e.target.value) })}
+            maxLength={50}
+            aria-invalid={lastNameIsInvalid}
             required
           />
+          {lastNameIsInvalid ? (
+            <p className="text-xs text-destructive">Мінімум 2 літери, без цифр і спецсимволів.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Можна українські або англійські літери, дефіс і апостроф.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
+          <Label htmlFor="email">Електронна пошта *</Label>
           <Input
             id="email"
             type="email"
+            inputMode="email"
+            autoComplete="email"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, email: formatEmail(e.target.value) })}
+            aria-invalid={emailIsInvalid}
             required
           />
+          {emailIsInvalid && <p className="text-xs text-destructive">Введіть коректну електронну пошту.</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">Номер телефону</Label>
           <Input
             id="phone"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onFocus={() => {
+              if (!formData.phone) setFormData({ ...formData, phone: `${UA_PHONE_PREFIX} (` })
+            }}
+            onBlur={() => {
+              if (formData.phone && getUaPhoneNationalDigits(formData.phone).length === 0) {
+                setFormData({ ...formData, phone: "" })
+              }
+            }}
+            onChange={(e) => setFormData({ ...formData, phone: formatUaPhone(e.target.value) })}
+            placeholder="+380 (##) ###-##-##"
+            maxLength={19}
+            aria-invalid={phoneIsInvalid}
           />
+          {phoneDigitsCount > 0 && phoneIsInvalid && (
+            <p className="text-xs text-destructive">Введіть 9 цифр після +380.</p>
+          )}
+          {phoneDigitsCount === 0 && (
+            <p className="text-xs text-muted-foreground">Український номер у форматі +380 (##) ###-##-##.</p>
+          )}
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="employeeId">Employee ID</Label>
-          <Input
-            id="employeeId"
-            value={formData.employeeId}
-            onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-          />
+          <Label>ID працівника</Label>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Код буде згенеровано автоматично (наприклад: EMP007)
+          </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="department">Department</Label>
+          <Label htmlFor="department">Відділ</Label>
           <Input
             id="department"
             value={formData.department}
@@ -157,10 +236,10 @@ export function NewUserForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="role">Role *</Label>
+        <Label htmlFor="role">Роль *</Label>
         <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
           <SelectTrigger>
-            <SelectValue placeholder="Select role" />
+            <SelectValue placeholder="Оберіть роль" />
           </SelectTrigger>
           <SelectContent>
             {roles.map((role) => (
@@ -173,7 +252,7 @@ export function NewUserForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password *</Label>
+        <Label htmlFor="password">Пароль *</Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
@@ -181,6 +260,7 @@ export function NewUserForm() {
               type={showPassword ? "text" : "password"}
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              aria-invalid={Boolean(formData.password && !passwordValidation.isValid)}
               required
             />
             <Button
@@ -194,10 +274,18 @@ export function NewUserForm() {
             </Button>
           </div>
           <Button type="button" variant="outline" onClick={generatePassword}>
-            Generate
+            Задати автоматично
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+        {formData.password ? (
+          <p className={passwordValidation.isValid ? "text-xs text-muted-foreground" : "text-xs text-destructive"}>
+            {passwordValidation.isValid ? passwordValidation.label : passwordValidation.errors.join(" ")}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Мінімум 8 символів: велика й мала літера, цифра та спецсимвол ! @ # $ %.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center space-x-2">
@@ -206,23 +294,28 @@ export function NewUserForm() {
           checked={formData.isActive}
           onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
         />
-        <Label htmlFor="isActive">Active User</Label>
+        <div className="space-y-1">
+          <Label htmlFor="isActive">Активний користувач</Label>
+          <p className="text-xs text-muted-foreground">
+            Неактивний користувач зберігається у системі, але не може відкрити dashboard.
+          </p>
+        </div>
       </div>
 
       {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       <div className="flex gap-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
+          Скасувати
         </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
+              Створення...
             </>
           ) : (
-            "Create User"
+            "Створити нового користувача"
           )}
         </Button>
       </div>

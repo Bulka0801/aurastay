@@ -1,34 +1,43 @@
 import type React from "react"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardHeader } from "@/components/dashboard-header"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
-    redirect("/login")
-  }
+    const { data, error } = await supabase.auth.getUser()
+    if (error || !data?.user) {
+      redirect("/login")
+    }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
 
-  if (!profile) {
-    redirect("/login")
-  }
+    if (!profile || !profile.is_active) {
+      redirect("/login")
+    }
 
-  return (
-    <div className="flex min-h-screen w-full flex-col bg-slate-50">
-      <DashboardHeader user={profile} />
-      <div className="flex flex-1">
+    const cookieStore = await cookies()
+    const defaultSidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
+
+    return (
+      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-slate-50">
         <DashboardNav role={profile.role} />
-        <main className="flex-1 p-6 md:p-8">{children}</main>
-      </div>
-    </div>
-  )
+        <SidebarInset className="bg-slate-50">
+          <DashboardHeader user={profile} />
+          <main className="min-w-0 flex-1 p-6 md:p-8">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    )
+  } catch {
+    redirect("/login")
+  }
 }
