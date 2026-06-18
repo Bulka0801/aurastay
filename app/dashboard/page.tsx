@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server"
 import { FrontDeskDashboard } from "@/components/dashboards/front-desk-dashboard"
 import { AdminDashboard } from "@/components/dashboards/admin-dashboard"
 import { HousekeepingDashboard } from "@/components/dashboards/housekeeping-dashboard"
-import { AccountantDashboard } from "@/components/dashboards/accountant-dashboard"
 import { ManagerDashboard } from "@/components/dashboards/manager-dashboard"
 import { MaintenanceDashboard } from "@/components/dashboards/maintenance-dashboard"
 
@@ -30,9 +29,6 @@ export default async function DashboardPage() {
     case "housekeeping_supervisor":
     case "housekeeping_staff":
       return <HousekeepingDashboard profile={profile} />
-
-    case "accountant":
-      return <AccountantDashboard profile={profile} />
 
     case "general_manager":
       return <ManagerDashboard profile={profile} />

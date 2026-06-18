@@ -33,7 +33,6 @@ const roles = [
   { value: "housekeeping_staff", label: "Покоївка" },
   { value: "revenue_manager", label: "Менеджер доходу" },
   { value: "sales_manager", label: "Менеджер продажів" },
-  { value: "accountant", label: "Бухгалтер" },
   { value: "maintenance_manager", label: "Керівник технічної служби" },
   { value: "maintenance_staff", label: "Технік" },
   { value: "fb_manager", label: "Менеджер ресторану" },

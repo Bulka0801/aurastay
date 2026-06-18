@@ -18,16 +18,9 @@ const allowedRoles = new Set<UserRole>([
   "system_administrator",
   "general_manager",
   "front_desk_manager",
-  "front_desk_agent",
-  "reservations_manager",
   "housekeeping_supervisor",
   "housekeeping_staff",
-  "revenue_manager",
-  "sales_manager",
-  "accountant",
-  "maintenance_manager",
   "maintenance_staff",
-  "fb_manager",
 ])
 
 export type UserActionResult = {
