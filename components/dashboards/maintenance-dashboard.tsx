@@ -284,7 +284,6 @@ export function MaintenanceDashboard({ profile }: { profile: Profile }) {
   const recentlyAssigned = activeRequests
     .filter((request) => request.assigned_to === profile.id || isManager)
     .sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime())
-    .slice(0, 5)
 
   const avgResolutionMinutes = useMemo(() => {
     const durations = completedToday
@@ -487,7 +486,6 @@ export function MaintenanceDashboard({ profile }: { profile: Profile }) {
       <DashboardPageHeader
         title="Дашборд технічної служби"
         description={`Пріоритетні заявки, ремонти номерів і швидкі оновлення статусів для ${profile.first_name}.`}
-        eyebrow="Зміна активна"
         actions={
           <>
           <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
@@ -516,7 +514,7 @@ export function MaintenanceDashboard({ profile }: { profile: Profile }) {
           title="Критичні інциденти"
           icon={AlertTriangle}
           empty="Критичних інцидентів немає"
-          requests={criticalRequests.slice(0, 4)}
+          requests={criticalRequests}
           tone="critical"
           onOpenDetails={setDetailsRequest}
           onStart={(request) => handleStatusChange(request, "in_progress")}
@@ -525,7 +523,7 @@ export function MaintenanceDashboard({ profile }: { profile: Profile }) {
           title="Прострочені задачі"
           icon={Timer}
           empty="Немає прострочених задач"
-          requests={overdueRequests.slice(0, 4)}
+          requests={overdueRequests}
           tone="overdue"
           onOpenDetails={setDetailsRequest}
           onStart={(request) => handleStatusChange(request, "in_progress")}
@@ -911,7 +909,7 @@ function PriorityPanel({
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="max-h-[22rem] space-y-2 overflow-y-auto pr-2">
         {requests.map((request) => (
           <div key={request.id} className={cn("rounded-md border-l-4 bg-white p-3 shadow-sm", priorityBorderClass[request.priority])}>
             <div className="flex items-start justify-between gap-2">

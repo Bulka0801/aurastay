@@ -14,7 +14,7 @@ import type {
 export const roleLabels: Record<UserRole, string> = {
   system_administrator: "Системний адміністратор",
   general_manager: "Генеральний менеджер",
-  front_desk_manager: "Адміністратор рецепції", //ЗАРАЗ БОС!!
+  front_desk_manager: "Адміністратор рецепції",
   housekeeping_supervisor: "Менеджер господарської служби",
   housekeeping_staff: "Працівник господарської служби",
   maintenance_staff: "Працівник технічної служби",

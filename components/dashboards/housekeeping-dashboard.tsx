@@ -346,7 +346,6 @@ export function HousekeepingDashboard({ profile }: HousekeepingDashboardProps) {
     const supabase = createClient();
     const staffId =
       newTaskStaff === "none" || !newTaskStaff ? null : newTaskStaff;
-    const needsCleaningStatus = shouldAutoCreateInspection(newTaskType);
     const insertData: Record<string, string | null> = {
       room_id: newTaskRoomId,
       task_type: newTaskType,
@@ -358,12 +357,6 @@ export function HousekeepingDashboard({ profile }: HousekeepingDashboardProps) {
       scheduled_date: new Date().toISOString().split("T")[0],
     };
     await supabase.from("housekeeping_tasks").insert(insertData);
-    if (needsCleaningStatus && newTaskType !== "inspection") {
-      await supabase
-        .from("rooms")
-        .update({ housekeeping_status: staffId ? "cleaning" : "dirty" })
-        .eq("id", newTaskRoomId);
-    }
     setSaving(false);
     setNewTaskDialogOpen(false);
     setNewTaskRoomId("");

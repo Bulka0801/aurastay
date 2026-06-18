@@ -30,10 +30,7 @@ import {
 import useSWR from "swr"
 import { HousekeepingKanban, type HKTask as KanbanHKTask } from "./housekeeping-kanban"
 import { formatDate, formatDateTime, formatTaskType } from "@/lib/localization"
-import {
-  isHousekeepingInspectionTask,
-  shouldAutoCreateInspection,
-} from "@/lib/rules/transitions"
+import { isHousekeepingInspectionTask } from "@/lib/rules/transitions"
 
 interface Room {
   id: string
@@ -142,7 +139,6 @@ export function HousekeepingClient({
   const [search, setSearch] = useState("")
   const [floorFilter, setFloorFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [updatingRoom, setUpdatingRoom] = useState<string | null>(null)
 
   // New task dialog
   const [newTaskOpen, setNewTaskOpen] = useState(false)
@@ -220,14 +216,6 @@ export function HousekeepingClient({
   ).length
   const cleaningToReviewCount = allRooms.filter((r) => r.housekeeping_status === "inspecting").length
 
-  const handleRoomStatusChange = async (roomId: string, newStatus: RoomHousekeepingStatus) => {
-    setUpdatingRoom(roomId)
-    const supabase = createClient()
-    await supabase.from("rooms").update({ housekeeping_status: newStatus }).eq("id", roomId)
-    setUpdatingRoom(null)
-    mutateRooms()
-  }
-
   const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
     const supabase = createClient()
     const task = allTasks.find((t) => t.id === taskId)
@@ -259,7 +247,6 @@ export function HousekeepingClient({
     setSaving(true)
     const supabase = createClient()
     const staffId = newTaskStaff === "none" ? null : newTaskStaff || null
-    const needsCleaningStatus = shouldAutoCreateInspection(newTaskType)
     await supabase.from("housekeeping_tasks").insert({
       room_id: newTaskRoomId,
       task_type: newTaskType,
@@ -270,10 +257,6 @@ export function HousekeepingClient({
       started_at: null,
       scheduled_date: new Date().toISOString().split("T")[0],
     })
-    if (needsCleaningStatus && newTaskType !== "inspection") {
-      await supabase.from("rooms").update({ housekeeping_status: "dirty" }).eq("id", newTaskRoomId)
-      mutateRooms()
-    }
     setSaving(false)
     setNewTaskOpen(false)
     setNewTaskRoomId("")
@@ -450,24 +433,6 @@ export function HousekeepingClient({
                           >
                             {cfg.label}
                           </Badge>
-                          <Select
-                            value={room.housekeeping_status}
-                            onValueChange={(v) =>
-                              handleRoomStatusChange(room.id, v as RoomHousekeepingStatus)
-                            }
-                            disabled={updatingRoom === room.id}
-                          >
-                            <SelectTrigger className="mt-1.5 h-6 text-[10px] px-1.5">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="clean">Чистий</SelectItem>
-                              <SelectItem value="dirty">Брудний</SelectItem>
-                              <SelectItem value="cleaning">Прибирається</SelectItem>
-                              <SelectItem value="inspecting">На перевірці</SelectItem>
-                              <SelectItem value="inspected">Перевірено</SelectItem>
-                            </SelectContent>
-                          </Select>
                         </div>
                       )
                     })}
